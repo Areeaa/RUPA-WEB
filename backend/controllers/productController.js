@@ -91,6 +91,10 @@ const getProductById = async (req, res) => {
         model: User,
         as: 'creator',
         attributes: ['id', 'name']
+      }, {
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name']
       }]
     });
 

@@ -148,15 +148,15 @@ export function ProductDetailPage({ product: initialProduct, onBack, userData, i
                 <ImageWithFallback src={productImages[currentImageIndex]} alt={product.name} className="w-full h-full object-cover transition-all duration-500" />
                 {productImages.length > 1 && (
                   <>
-                    <button onClick={prevImage} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={prevImage} className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all z-10">
                       <ChevronLeft className="w-6 h-6 text-gray-800" />
                     </button>
-                    <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all z-10">
                       <ChevronRight className="w-6 h-6 text-gray-800" />
                     </button>
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 px-3 py-1.5 bg-black/20 backdrop-blur-sm rounded-full">
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 px-3 py-2 bg-black/30 backdrop-blur-md rounded-full">
                       {productImages.map((_: any, idx: number) => (
-                        <div key={idx} className={`h-1.5 rounded-full transition-all ${currentImageIndex === idx ? 'bg-white w-4' : 'bg-white/50 w-1.5'}`} />
+                        <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${currentImageIndex === idx ? 'bg-white w-5' : 'bg-white/50 w-1.5'}`} />
                       ))}
                     </div>
                   </>
@@ -167,14 +167,14 @@ export function ProductDetailPage({ product: initialProduct, onBack, userData, i
               <div className="p-8 md:p-12 flex flex-col">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
-                    <Badge className="bg-green-100 text-green-800 border-0 mb-3 px-3 py-1 rounded-full">
+                    <Badge className="bg-green-100 text-green-700 border border-green-200 mb-3 px-4 py-1.5 rounded-full font-semibold shadow-sm">
                       {product.category || 'Umum'}
                     </Badge>
                     <h1 className="text-3xl font-bold text-gray-800 leading-tight mb-2">{product.name}</h1>
-                    <p className="text-gray-500 text-lg">
+                    <p className="text-gray-600 text-lg">
                       oleh{' '}
                       <span 
-                        className="font-semibold text-gray-800 hover:text-green-600 cursor-pointer underline-offset-4 hover:underline transition-all"
+                        className="font-bold text-gray-900 hover:text-green-600 cursor-pointer underline underline-offset-4 decoration-green-200 hover:decoration-green-500 transition-all"
                         onClick={() => onViewCreator(product.userId, product.creator || 'Kreator')}
                       >
                         {product.creator || 'Kreator'}

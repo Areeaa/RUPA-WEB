@@ -28,8 +28,8 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
 
   // States untuk Upload / Edit
   const [formData, setFormData] = useState({ title: '', description: '', price: '', category: '' });
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
 
@@ -117,13 +117,27 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
 
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setImagePreview(reader.result as string);
-      reader.readAsDataURL(file);
+    const files = Array.from(e.target.files || []);
+    if (files.length + imagePreviews.length > 10) {
+      toast.error('Maksimal 10 foto diperbolehkan');
+      return;
     }
+
+    const newFiles = [...imageFiles, ...files];
+    setImageFiles(newFiles);
+
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreviews(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleEditClick = (product: Product) => {
@@ -134,8 +148,8 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
       price: String(product.price),
       category: String(product.categoryId || ''),
     });
-    setImagePreview(product.image || null);
-    setImageFile(null); // Reset file input, use existing image if not changed
+    setImagePreviews(product.images || [product.image].filter(Boolean) as string[]);
+    setImageFiles([]); // Reset files, we use existing previews (URLs) or new files
     setActivePage('upload');
   };
 
@@ -146,8 +160,8 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
       return;
     }
 
-    if (!editingProductId && !imageFile) {
-      toast.error('Mohon upload foto karya!');
+    if (!editingProductId && imageFiles.length === 0) {
+      toast.error('Mohon upload setidaknya satu foto karya!');
       return;
     }
 
@@ -158,9 +172,10 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
       data.append('description', formData.description);
       data.append('price', formData.price);
       data.append('categoryId', formData.category);
-      if (imageFile) {
-        data.append('images', imageFile);
-      }
+      
+      imageFiles.forEach(file => {
+        data.append('images', file);
+      });
 
       if (editingProductId) {
         await productService.update(editingProductId, data);
@@ -171,8 +186,8 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
       }
 
       setFormData({ title: '', description: '', price: '', category: '' });
-      setImagePreview(null);
-      setImageFile(null);
+      setImagePreviews([]);
+      setImageFiles([]);
       setEditingProductId(null);
       setActivePage('my-products');
     } catch (error: any) {
@@ -308,20 +323,29 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmitUpload} className="space-y-5">
-                  <div className="space-y-2">
-                    <Label className="text-gray-700">Foto Utama</Label>
-                    {imagePreview ? (
-                      <div className="relative w-full md:w-1/2">
-                        <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover rounded-xl" />
-                        <Button type="button" onClick={() => { setImagePreview(null); setImageFile(null); }} variant="destructive" size="sm" className="absolute top-2 right-2 rounded-lg">Hapus</Button>
-                      </div>
-                    ) : (
-                      <label className="flex flex-col items-center justify-center w-full md:w-1/2 h-48 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50">
-                        <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                        <span className="text-sm text-gray-500">Klik untuk upload foto</span>
-                        <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
-                      </label>
-                    )}
+                  <div className="space-y-3">
+                    <Label className="text-gray-700">Foto Karya (Maks. 10)</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      {imagePreviews.map((preview, index) => (
+                        <div key={index} className="relative aspect-square">
+                          <img src={preview} alt={`Preview ${index}`} className="w-full h-full object-cover rounded-xl border border-gray-100" />
+                          <button 
+                            type="button" 
+                            onClick={() => removeImage(index)} 
+                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      {imagePreviews.length < 10 && (
+                        <label className="flex flex-col items-center justify-center aspect-square border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                          <Upload className="w-6 h-6 text-gray-400 mb-1" />
+                          <span className="text-[10px] text-gray-500 text-center px-1">Tambah Foto</span>
+                          <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageChange} />
+                        </label>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-2">

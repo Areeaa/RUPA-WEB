@@ -120,6 +120,7 @@ const getTopCreators = async (req, res) => {
     const topCreators = await User.findAll({
       attributes: [
         'id', 'name',
+        [fn('COUNT', fn('DISTINCT', col('products.id'))), 'total_products'],
         [fn('IFNULL', fn('SUM', col('products->orderItems.price')), 0), 'total_income']
       ],
       include: [{
@@ -165,12 +166,9 @@ const getSystemStats = async (req, res) => {
     const totalDonations = totalRevenueResult[0]?.totalRevenue || 0;
 
     res.json({
-      uptime: '99.9%', // Mock untuk uptime karena butuh OS level monitoring
       activeUsers,
       totalDonations: `Rp ${Number(totalDonations).toLocaleString('id-ID')}`,
       totalTransactions,
-      pendingReports: 0, // Belum ada sistem report
-      serverHealth: 98,
     });
   } catch (error) {
     console.error('Error getSystemStats:', error);

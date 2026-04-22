@@ -8,7 +8,6 @@ type AdminAnalyticsProps = {
 };
 
 export function AdminAnalytics({ dailyTransactions = [], systemStats = {}, topCategories = [] }: AdminAnalyticsProps) {
-  // Hitung transaksi hari ini (mocking dari array jika ada)
   const todayTx = dailyTransactions?.length > 0 ? dailyTransactions[dailyTransactions.length - 1].total_transactions : 0;
   
   return (

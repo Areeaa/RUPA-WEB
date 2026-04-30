@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
 import {
   LayoutDashboard,
   Users,
@@ -10,6 +11,7 @@ import {
   FileText,
   Shield,
   Loader2,
+  Menu,
 } from 'lucide-react';
 import type { UserData } from '../types';
 import { toast } from 'sonner';
@@ -32,8 +34,17 @@ type SystemStats = {
   totalTransactions: number;
 };
 
+const adminTabs = [
+  { value: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { value: 'users', label: 'Pengguna', icon: Users },
+  { value: 'analytics', label: 'Analytics', icon: TrendingUp },
+  { value: 'licenses', label: 'Lisensi', icon: FileText },
+  { value: 'categories', label: 'Kategori', icon: Flag },
+] as const;
+
 export function AdminDashboard({ onLogout, adminData }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState('overview');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [systemStats, setSystemStats] = useState<SystemStats>({
     activeUsers: 0,
@@ -80,94 +91,162 @@ export function AdminDashboard({ onLogout, adminData }: AdminDashboardProps) {
     }
   }, [activeTab]);
 
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setIsMobileMenuOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-orange-50">
       <div className="bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur">
                 <Shield className="h-6 w-6" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-2xl">Admin Dashboard RUPA</h1>
                 <p className="text-sm text-green-100">Penjaga Karya Anak Bangsa</p>
               </div>
             </div>
-            {onLogout && (
-              <Button
-                onClick={onLogout}
-                variant="outline"
-                className="rounded-xl border-white/30 bg-white/10 text-white hover:bg-white/20"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Keluar
-              </Button>
-            )}
+
+            <div className="hidden md:block">
+              {onLogout && (
+                <Button
+                  onClick={onLogout}
+                  variant="outline"
+                  className="rounded-xl border-white/30 bg-white/10 text-white hover:bg-white/20"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Keluar
+                </Button>
+              )}
+            </div>
+
+            <div className="md:hidden">
+              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="rounded-xl border-white/30 bg-white/10 px-3 text-white hover:bg-white/20"
+                    aria-label="Buka menu admin"
+                  >
+                    <Menu className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-[300px] border-0 p-0 sm:max-w-[300px]">
+                  <div className="flex h-full flex-col bg-gradient-to-b from-green-700 via-green-600 to-orange-500 text-white">
+                    <SheetHeader className="border-b border-white/15 px-6 py-5 text-left">
+                      <SheetTitle className="text-white">Menu Admin</SheetTitle>
+                      <SheetDescription className="text-white/80">
+                        Pilih halaman yang ingin Anda buka.
+                      </SheetDescription>
+                    </SheetHeader>
+
+                    <div className="flex-1 space-y-2 px-4 py-4">
+                      {adminTabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.value;
+
+                        return (
+                          <Button
+                            key={tab.value}
+                            onClick={() => handleTabChange(tab.value)}
+                            variant="ghost"
+                            className={`h-12 w-full justify-start rounded-xl px-4 ${
+                              isActive ? 'bg-white text-green-700 shadow-sm hover:bg-white/90' : 'text-white hover:bg-white/20'
+                            }`}
+                          >
+                            <Icon className="mr-3 h-4 w-4" />
+                            {tab.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+
+                    {onLogout && (
+                      <div className="border-t border-white/15 p-4">
+                        <Button
+                          onClick={onLogout}
+                          variant="outline"
+                          className="w-full rounded-xl border-white/30 bg-white/10 text-white hover:bg-white/20"
+                        >
+                          <LogOut className="mr-2 h-4 w-4" />
+                          Keluar
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid h-auto grid-cols-3 gap-2 rounded-xl bg-white p-2 shadow-md md:grid-cols-6">
-            <TabsTrigger value="overview" className="rounded-lg py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-orange-500 data-[state=active]:text-white">
-              <LayoutDashboard className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Overview</span>
-            </TabsTrigger>
-            <TabsTrigger value="users" className="rounded-lg py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-orange-500 data-[state=active]:text-white">
-              <Users className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Pengguna</span>
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="rounded-lg py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-orange-500 data-[state=active]:text-white">
-              <TrendingUp className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Analytics</span>
-            </TabsTrigger>
-            <TabsTrigger value="licenses" className="rounded-lg py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-orange-500 data-[state=active]:text-white">
-              <FileText className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Lisensi</span>
-            </TabsTrigger>
-            <TabsTrigger value="categories" className="rounded-lg py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-orange-500 data-[state=active]:text-white">
-              <Flag className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Kategori</span>
-            </TabsTrigger>
-          </TabsList>
+      <div className="container mx-auto px-4 py-8 md:py-0">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <div className="grid gap-6 md:min-h-[calc(100vh-112px)] md:grid-cols-[240px_minmax(0,1fr)] md:gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
+            <aside className="hidden border-r border-green-100 bg-white md:block">
+              <div className="sticky top-0 flex min-h-[calc(100vh-112px)] flex-col px-4 py-8">
+                <TabsList className="flex h-auto w-full flex-col gap-2 bg-transparent p-0 shadow-none">
+                  {adminTabs.map((tab) => {
+                    const Icon = tab.icon;
 
-          <TabsContent value="overview">
-            {isLoadingStats ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+                    return (
+                      <TabsTrigger
+                        key={tab.value}
+                        value={tab.value}
+                        className="justify-start rounded-xl px-4 py-3 text-left data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-orange-500 data-[state=active]:text-white"
+                      >
+                        <Icon className="mr-3 h-4 w-4" />
+                        <span>{tab.label}</span>
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
               </div>
-            ) : (
-              <AdminOverview adminData={adminData} systemStats={systemStats} topCreators={topCreators} />
-            )}
-          </TabsContent>
+            </aside>
 
-          <TabsContent value="users">
-            <AdminUsers />
-          </TabsContent>
+            <div className="min-w-0 md:px-6 md:py-8 lg:px-8">
+              <TabsContent value="overview" className="mt-0">
+                {isLoadingStats ? (
+                  <div className="flex h-64 items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+                  </div>
+                ) : (
+                  <AdminOverview adminData={adminData} systemStats={systemStats} topCreators={topCreators} />
+                )}
+              </TabsContent>
 
-          <TabsContent value="analytics">
-            {isLoadingStats ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-              </div>
-            ) : (
-              <AdminAnalytics
-                dailyTransactions={dailyTransactions}
-                systemStats={systemStats}
-                topCategories={topCategories}
-              />
-            )}
-          </TabsContent>
+              <TabsContent value="users" className="mt-0">
+                <AdminUsers />
+              </TabsContent>
 
-          <TabsContent value="licenses">
-            <AdminLicenses />
-          </TabsContent>
+              <TabsContent value="analytics" className="mt-0">
+                {isLoadingStats ? (
+                  <div className="flex h-64 items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+                  </div>
+                ) : (
+                  <AdminAnalytics
+                    dailyTransactions={dailyTransactions}
+                    systemStats={systemStats}
+                    topCategories={topCategories}
+                  />
+                )}
+              </TabsContent>
 
-          <TabsContent value="categories">
-            <AdminCategories />
-          </TabsContent>
+              <TabsContent value="licenses" className="mt-0">
+                <AdminLicenses />
+              </TabsContent>
+
+              <TabsContent value="categories" className="mt-0">
+                <AdminCategories />
+              </TabsContent>
+            </div>
+          </div>
         </Tabs>
       </div>
     </div>

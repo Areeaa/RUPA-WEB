@@ -23,6 +23,10 @@ type HomePageProps = {
   isGuest?: boolean;
 };
 
+const DESKTOP_PRODUCT_COLUMNS = 6;
+const INITIAL_PRODUCT_ROWS = 6;
+const LOAD_MORE_PRODUCT_ROWS = 3;
+
 // Helper to normalize backend product to frontend Product type
 function normalizeProduct(p: any): Product {
   const images = p.images || [];
@@ -57,6 +61,7 @@ export function HomePage({ userData, onProductClick, navigateToOrders, isGuest }
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [visibleProductCount, setVisibleProductCount] = useState(DESKTOP_PRODUCT_COLUMNS * INITIAL_PRODUCT_ROWS);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,6 +84,10 @@ export function HomePage({ userData, onProductClick, navigateToOrders, isGuest }
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    setVisibleProductCount(DESKTOP_PRODUCT_COLUMNS * INITIAL_PRODUCT_ROWS);
+  }, [searchQuery, categoryFilter, priceFilter, sortBy]);
 
 
 
@@ -106,6 +115,9 @@ export function HomePage({ userData, onProductClick, navigateToOrders, isGuest }
   } else if (sortBy === 'rating') {
     filteredWorks.sort((a, b) => (b.rating || 0) - (a.rating || 0));
   }
+
+  const visibleWorks = filteredWorks.slice(0, visibleProductCount);
+  const hasMoreProducts = filteredWorks.length > visibleWorks.length;
 
   return (
     <div className="min-h-screen bg-gray-50/50">
@@ -207,38 +219,52 @@ export function HomePage({ userData, onProductClick, navigateToOrders, isGuest }
               <p className="text-gray-500">Memuat karya kreatif...</p>
             </div>
           ) : filteredWorks.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {filteredWorks.map((work) => (
-                <Card
-                  key={work.id}
-                  className="rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all group cursor-pointer bg-white"
-                  onClick={() => onProductClick(work)}
-                >
-                  <div className="relative aspect-square overflow-hidden bg-gray-100">
-                    <ImageWithFallback
-                      src={work.image || ''}
-                      alt={work.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <Badge className="absolute top-2 right-2 bg-white/90 text-gray-800 border-0 backdrop-blur shadow-sm text-[10px] md:text-xs">
-                      {work.category}
-                    </Badge>
-                  </div>
-                  <CardContent className="p-3 md:p-4">
-                    <h3 className="text-gray-800 mb-1 line-clamp-2 font-medium text-sm md:text-base group-hover:text-green-600 transition-colors">{work.name}</h3>
-                    <p className="text-xs text-gray-500 mb-2">oleh {work.creator}</p>
-                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
-                      <span className="font-bold text-sm md:text-lg text-[var(--theme-primary)]">
-                        Rp {(typeof work.price === 'number' ? work.price : parseInt(String(work.price)) || 0).toLocaleString('id-ID')}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <Star className="w-3 h-3 md:w-4 md:h-4" fill={work.rating ? "#fac824" : "transparent"} color={work.rating ? "#fac824" : "#d1d5db"} />
-                        <span className="text-xs md:text-sm text-gray-700">{work.rating ? work.rating.toFixed(1) : '0'}</span>
-                      </div>
+            <div className="space-y-8">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-6">
+                {visibleWorks.map((work) => (
+                  <Card
+                    key={work.id}
+                    className="rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all group cursor-pointer bg-white"
+                    onClick={() => onProductClick(work)}
+                  >
+                    <div className="relative aspect-square overflow-hidden bg-gray-100">
+                      <ImageWithFallback
+                        src={work.image || ''}
+                        alt={work.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <Badge className="absolute top-2 right-2 bg-white/90 text-gray-800 border-0 backdrop-blur shadow-sm text-[10px] md:text-xs">
+                        {work.category}
+                      </Badge>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    <CardContent className="p-3 md:p-4">
+                      <h3 className="text-gray-800 mb-1 line-clamp-2 font-medium text-sm md:text-base group-hover:text-green-600 transition-colors">{work.name}</h3>
+                      <p className="text-xs text-gray-500 mb-2">oleh {work.creator}</p>
+                      <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
+                        <span className="font-bold text-sm md:text-lg text-[var(--theme-primary)]">
+                          Rp {(typeof work.price === 'number' ? work.price : parseInt(String(work.price)) || 0).toLocaleString('id-ID')}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3 h-3 md:w-4 md:h-4" fill={work.rating ? "#fac824" : "transparent"} color={work.rating ? "#fac824" : "#d1d5db"} />
+                          <span className="text-xs md:text-sm text-gray-700">{work.rating ? work.rating.toFixed(1) : '0'}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {hasMoreProducts && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => setVisibleProductCount((prev) => prev + DESKTOP_PRODUCT_COLUMNS * LOAD_MORE_PRODUCT_ROWS)}
+                    className="rounded-xl border-green-200 px-6 text-green-700 hover:bg-green-50"
+                  >
+                    Tampilkan lebih banyak
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-20 bg-white rounded-3xl border border-gray-100 border-dashed">

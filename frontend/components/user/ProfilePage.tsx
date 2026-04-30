@@ -215,7 +215,7 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
     <div className="min-h-screen bg-gray-50/50 pb-12">
       <div className="bg-white shadow-sm mb-6 border-b border-gray-100">
         <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
             <Avatar className="w-20 h-20 border-2 border-gray-100">
               {(userData.profilePicture || userData.profile_picture) ? (
                 <AvatarImage src={userData.profilePicture || userData.profile_picture} alt={userData.name || userData.username} />
@@ -225,19 +225,19 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
                 </AvatarFallback>
               )}
             </Avatar>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <div className="min-w-0">
+              <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold text-gray-800">
                 Toko {userData.fullName || userData.name || userData.username} <Store className="w-5 h-5 text-gray-400" />
               </h1>
               <p className="text-gray-500">Kelola dan tawarkan karyamu di sini</p>
             </div>
           </div>
 
-          <div className="flex gap-4 mt-8">
+          <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap">
             <Button
               onClick={() => setActivePage('my-products')}
               variant={activeTab === 'my-products' ? 'default' : 'outline'}
-              className={`rounded-xl ${activeTab === 'my-products' ? 'text-white shadow-md' : 'text-gray-600'}`}
+              className={`w-full rounded-xl sm:w-full lg:w-auto ${activeTab === 'my-products' ? 'text-white shadow-md' : 'text-gray-600'}`}
               style={activeTab === 'my-products' ? { backgroundImage: 'linear-gradient(to right, var(--theme-light), var(--theme-secondary))' } : {}}
             >
               <Package className="w-4 h-4 mr-2" /> Karya Saya
@@ -245,7 +245,7 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
             <Button
               onClick={() => setActivePage('upload')}
               variant={activeTab === 'upload' ? 'default' : 'outline'}
-              className={`rounded-xl ${activeTab === 'upload' ? 'text-white shadow-md' : 'text-gray-600'}`}
+              className={`w-full rounded-xl sm:w-full lg:w-auto ${activeTab === 'upload' ? 'text-white shadow-md' : 'text-gray-600'}`}
               style={activeTab === 'upload' ? { backgroundImage: 'linear-gradient(to right, var(--theme-light), var(--theme-secondary))' } : {}}
             >
               <Plus className="w-4 h-4 mr-2" /> Tambah Karya Baru
@@ -253,7 +253,7 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
             <Button
               onClick={() => setActivePage('sales')}
               variant={activeTab === 'sales' ? 'default' : 'outline'}
-              className={`rounded-xl ${activeTab === 'sales' ? 'text-white shadow-md' : 'text-gray-600'}`}
+              className={`w-full rounded-xl sm:col-span-2 sm:w-full lg:w-auto ${activeTab === 'sales' ? 'text-white shadow-md' : 'text-gray-600'}`}
               style={activeTab === 'sales' ? { backgroundImage: 'linear-gradient(to right, var(--theme-light), var(--theme-secondary))' } : {}}
             >
               <Package className="w-4 h-4 mr-2" /> Pesanan Masuk
@@ -353,7 +353,7 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
                     <Input placeholder="Contoh: Vas Anyaman Bambu" className="rounded-xl" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label className="text-gray-700">Harga (Rp)</Label>
                       <Input type="number" placeholder="50000" className="rounded-xl" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} />
@@ -376,7 +376,7 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
                     <Textarea placeholder="Ceritakan detail bahan, ukuran, dan kelebihan karyamu..." className="rounded-xl min-h-[100px]" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
                   </div>
 
-                  <div className="pt-4 flex justify-end gap-3">
+                  <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
                     <Button 
                       type="button" 
                       variant="outline" 
@@ -384,11 +384,11 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
                         setActivePage('my-products');
                         setEditingProductId(null);
                       }} 
-                      className="rounded-xl"
+                      className="w-full rounded-xl sm:w-auto"
                     >
                       Batal
                     </Button>
-                    <Button type="submit" disabled={isUploading} className="rounded-xl text-white px-8 shadow-md bg-gradient-to-r from-[var(--theme-light)] to-[var(--theme-secondary)]">
+                    <Button type="submit" disabled={isUploading} className="w-full rounded-xl px-8 text-white shadow-md sm:w-auto bg-gradient-to-r from-[var(--theme-light)] to-[var(--theme-secondary)]">
                       {isUploading ? 'Menyimpan...' : (editingProductId ? 'Simpan Perubahan' : 'Terbitkan Karya')}
                     </Button>
                   </div>

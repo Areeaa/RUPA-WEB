@@ -69,7 +69,6 @@ export function SettingsPage({ userData, updateUserData, onLogout }: SettingsPag
   const themeColorsList = Object.entries(THEME_COLORS).map(([key, colors]) => ({
     name: key.charAt(0).toUpperCase() + key.slice(1),
     value: key,
-    gradient: `from-${key}-400 to-${key}-600`,
     colors
   }));
 
@@ -134,12 +133,12 @@ export function SettingsPage({ userData, updateUserData, onLogout }: SettingsPag
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-start gap-4">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-xl">
               <Settings className="w-8 h-8 text-white" />
             </div>
-            <div>
-              <h1 className="text-3xl text-gray-800">{t.settings}</h1>
+            <div className="min-w-0">
+              <h1 className="text-3xl text-gray-800 break-words">{t.settings}</h1>
               <p className="text-gray-600">{t.settingsDesc}</p>
             </div>
           </div>
@@ -183,7 +182,7 @@ export function SettingsPage({ userData, updateUserData, onLogout }: SettingsPag
                 </div>
               </div>
 
-              <div className="ml-32 -mt-8 mb-6">
+              <div className="mb-6 mt-4 sm:-mt-8 sm:ml-32">
                 <h2 className="text-xl font-bold text-gray-800">{userData.fullName || userData.username}</h2>
                 <p className="text-gray-500">@{userData.name || userData.username || ''}</p>
               </div>
@@ -197,8 +196,12 @@ export function SettingsPage({ userData, updateUserData, onLogout }: SettingsPag
                   {themeColorsList.map((color) => (
                     <button
                       key={color.value}
+                      type="button"
                       onClick={() => handleThemeChange(color.value)}
-                      className={`h-12 rounded-xl bg-gradient-to-br ${color.gradient} transition-transform ${userData.themeColor === color.value ? 'ring-2 ring-offset-2 ring-gray-800 scale-105' : 'hover:scale-105'}`}
+                      className={`h-12 rounded-xl transition-transform ${userData.themeColor === color.value ? 'ring-2 ring-offset-2 ring-gray-800 scale-105' : 'hover:scale-105'}`}
+                      style={{
+                        backgroundImage: `linear-gradient(to bottom right, ${color.colors.light}, ${color.colors.primary})`,
+                      }}
                       title={color.name}
                     />
                   ))}
@@ -209,14 +212,14 @@ export function SettingsPage({ userData, updateUserData, onLogout }: SettingsPag
 
           {/* DATA DIRI (BARU DIPINDAH DARI PROFILEPAGE) */}
           <Card className="rounded-2xl shadow-lg border-0">
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="text-green-800 flex items-center gap-2">
                 <User className="w-5 h-5" /> Data Diri
               </CardTitle>
               <Button
                 onClick={() => isEditingProfile ? handleSaveProfile() : setIsEditingProfile(true)}
                 size="sm"
-                className="rounded-xl text-white"
+                className="w-full rounded-xl text-white sm:w-auto"
                 style={{ backgroundImage: `linear-gradient(to right, ${currentThemeData.light}, ${currentThemeData.secondary})` }}
               >
                 {isEditingProfile ? t.save : 'Edit Data'}
@@ -260,23 +263,23 @@ export function SettingsPage({ userData, updateUserData, onLogout }: SettingsPag
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-gray-700 flex items-center gap-2"><Mail className="w-4 h-4" /> {t.email}</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="rounded-xl" />
-                  <Button onClick={() => setShowEmailDialog(true)} disabled={email === userData.email} className="rounded-xl">Ubah</Button>
+                  <Button onClick={() => setShowEmailDialog(true)} disabled={email === userData.email} className="w-full rounded-xl sm:w-auto">Ubah</Button>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label className="text-gray-700 flex items-center gap-2"><User className="w-4 h-4" /> {t.username}</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="rounded-xl" />
-                  <Button onClick={() => setShowUsernameDialog(true)} disabled={username === userData.username} className="rounded-xl">Ubah</Button>
+                  <Button onClick={() => setShowUsernameDialog(true)} disabled={username === userData.username} className="w-full rounded-xl sm:w-auto">Ubah</Button>
                 </div>
               </div>
-              <div className="pt-4 flex gap-3">
-                <Button onClick={() => setShowPasswordDialog(true)} variant="outline" className="flex-1 rounded-xl">
+              <div className="flex flex-col gap-3 pt-4 sm:flex-row">
+                <Button onClick={() => setShowPasswordDialog(true)} variant="outline" className="w-full flex-1 rounded-xl">
                   <Lock className="w-4 h-4 mr-2" /> {t.changePassword}
                 </Button>
-                <Button onClick={() => setShowLogoutDialog(true)} variant="destructive" className="flex-1 rounded-xl">
+                <Button onClick={() => setShowLogoutDialog(true)} variant="destructive" className="w-full flex-1 rounded-xl">
                   <LogOut className="w-4 h-4 mr-2" /> {t.logout}
                 </Button>
               </div>

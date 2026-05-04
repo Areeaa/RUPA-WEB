@@ -224,10 +224,10 @@ export function HomePage({ userData, onProductClick, navigateToOrders, isGuest }
                 {visibleWorks.map((work) => (
                   <Card
                     key={work.id}
-                    className="rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all group cursor-pointer bg-white"
+                    className="group cursor-pointer overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all hover:shadow-xl"
                     onClick={() => onProductClick(work)}
                   >
-                    <div className="relative aspect-square overflow-hidden bg-gray-100">
+                    <div className="relative aspect-[6/5] overflow-hidden bg-gray-100">
                       <ImageWithFallback
                         src={work.image || ''}
                         alt={work.name}
@@ -237,11 +237,11 @@ export function HomePage({ userData, onProductClick, navigateToOrders, isGuest }
                         {work.category}
                       </Badge>
                     </div>
-                    <CardContent className="p-3 md:p-4">
-                      <h3 className="text-gray-800 mb-1 line-clamp-2 font-medium text-sm md:text-base group-hover:text-green-600 transition-colors">{work.name}</h3>
-                      <p className="text-xs text-gray-500 mb-2">oleh {work.creator}</p>
-                      <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
-                        <span className="font-bold text-sm md:text-lg text-[var(--theme-primary)]">
+                    <CardContent className="p-3">
+                      <h3 className="mb-1 line-clamp-1 text-sm font-medium text-gray-800 transition-colors group-hover:text-green-600 md:text-[15px]">{work.name}</h3>
+                      <p className="mb-2 line-clamp-1 text-xs text-gray-500">oleh {work.creator}</p>
+                      <div className="flex items-center justify-between border-t border-gray-50 pt-2">
+                        <span className="text-sm font-bold text-[var(--theme-primary)] md:text-base">
                           Rp {(typeof work.price === 'number' ? work.price : parseInt(String(work.price)) || 0).toLocaleString('id-ID')}
                         </span>
                         <div className="flex items-center gap-1">

@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Sparkles, Mail, Lock, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
+import { UserFooter } from './user/UserFooter';
 
 const GOOGLE_CLIENT_ID = '24822636459-0nl718o3a8agpthdnekoji3rpniq6mvs.apps.googleusercontent.com';
 
@@ -94,7 +95,8 @@ export function SignUpPage() {
   }, [handleGoogleCallback]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen">
+      <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-lg shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center mb-4">
@@ -206,7 +208,9 @@ export function SignUpPage() {
             </p>
           </div>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
+      <UserFooter isGuest />
     </div>
   );
 }

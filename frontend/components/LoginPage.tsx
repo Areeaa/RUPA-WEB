@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Sparkles, Lock, User, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
+import { UserFooter } from './user/UserFooter';
 
 const GOOGLE_CLIENT_ID = '24822636459-0nl718o3a8agpthdnekoji3rpniq6mvs.apps.googleusercontent.com';
 
@@ -85,100 +86,101 @@ export function LoginPage() {
   }, [handleGoogleCallback]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/80 backdrop-blur-sm relative">
-        <button 
-          onClick={() => navigate('/')}
-          className="absolute top-4 left-4 text-gray-400 hover:text-green-600 transition-colors flex items-center gap-1 text-sm"
-        >
-          <ArrowLeft className="w-4 h-4" /> Kembali
-        </button>
+    <div className="min-h-screen">
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-2xl border-0 bg-white/80 backdrop-blur-sm relative">
+          <button
+            onClick={() => navigate('/')}
+            className="absolute top-4 left-4 text-gray-400 hover:text-green-600 transition-colors flex items-center gap-1 text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" /> Kembali
+          </button>
 
-        <CardHeader className="text-center space-y-2 mt-4">
-          <div className="flex justify-center mb-4">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-orange-400 flex items-center justify-center shadow-lg">
-              <Sparkles className="w-10 h-10 text-white" />
+          <CardHeader className="text-center space-y-2 mt-4">
+            <div className="flex justify-center mb-4">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-orange-400 flex items-center justify-center shadow-lg">
+                <Sparkles className="w-10 h-10 text-white" />
+              </div>
             </div>
-          </div>
-          <CardTitle className="text-green-800 text-2xl">Masuk ke RUPA</CardTitle>
-          <CardDescription className="text-orange-700">
-            Lanjutkan perjalananmu mencari karya anak bangsa
-          </CardDescription>
-        </CardHeader>
+            <CardTitle className="text-green-800 text-2xl">Masuk ke RUPA</CardTitle>
+            <CardDescription className="text-orange-700">
+              Lanjutkan perjalananmu mencari karya anak bangsa
+            </CardDescription>
+          </CardHeader>
 
-        <CardContent>
-          <form onSubmit={handleUserLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="nama@email.com"
-                  className="pl-10 rounded-xl bg-white/50 border-gray-200 focus:border-green-500 transition-all"
-                  value={userForm.email}
-                  onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                  required
-                />
+          <CardContent>
+            <form onSubmit={handleUserLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="nama@email.com"
+                    className="pl-10 rounded-xl bg-white/50 border-gray-200 focus:border-green-500 transition-all"
+                    value={userForm.email}
+                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="user-password" className="text-gray-700">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                  <Input
+                    id="user-password"
+                    type="password"
+                    placeholder="Masukkan Password"
+                    className="pl-10 rounded-xl border-gray-200"
+                    value={userForm.password}
+                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full rounded-xl bg-gradient-to-r from-green-500 to-orange-500 hover:from-green-600 hover:to-orange-600 text-white shadow-lg"
+              >
+                {isSubmitting ? 'Memproses...' : 'Masuk'}
+              </Button>
+            </form>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white/80 px-2 text-gray-500">atau lanjutkan dengan</span>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="user-password" className="text-gray-700">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                <Input
-                  id="user-password"
-                  type="password"
-                  placeholder="Masukkan Password"
-                  className="pl-10 rounded-xl border-gray-200"
-                  value={userForm.password}
-                  onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                  required
-                />
-              </div>
+            <div id="google-signin-btn" className="flex justify-center"></div>
+
+            <noscript>
+              <Button type="button" variant="outline" className="w-full rounded-xl border-gray-300 hover:bg-gray-50 text-gray-700 mt-2">
+                <GoogleIcon />
+                Google
+              </Button>
+            </noscript>
+
+            <div className="text-center pt-6">
+              <p className="text-sm text-gray-600">
+                Belum punya akun?{' '}
+                <button onClick={() => navigate('/signup')} className="text-green-600 font-semibold hover:text-green-700 hover:underline">
+                  Daftar sekarang
+                </button>
+              </p>
             </div>
-
-            <Button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="w-full rounded-xl bg-gradient-to-r from-green-500 to-orange-500 hover:from-green-600 hover:to-orange-600 text-white shadow-lg"
-            >
-              {isSubmitting ? 'Memproses...' : 'Masuk'}
-            </Button>
-          </form>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-300" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white/80 px-2 text-gray-500">atau lanjutkan dengan</span>
-            </div>
-          </div>
-
-          {/* Google Sign-In Button rendered by Google SDK */}
-          <div id="google-signin-btn" className="flex justify-center"></div>
-          
-          {/* Fallback button if Google SDK not loaded */}
-          <noscript>
-            <Button type="button" variant="outline" className="w-full rounded-xl border-gray-300 hover:bg-gray-50 text-gray-700 mt-2">
-              <GoogleIcon />
-              Google
-            </Button>
-          </noscript>
-
-          <div className="text-center pt-6">
-            <p className="text-sm text-gray-600">
-              Belum punya akun?{' '}
-              <button onClick={() => navigate('/signup')} className="text-green-600 font-semibold hover:text-green-700 hover:underline">
-                Daftar sekarang
-              </button>
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
+      <UserFooter isGuest />
     </div>
   );
 }

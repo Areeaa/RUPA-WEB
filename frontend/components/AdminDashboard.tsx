@@ -111,7 +111,7 @@ export function AdminDashboard({ onLogout, adminData }: AdminDashboardProps) {
               </div>
             </div>
 
-            <div className="hidden md:block">
+            <div className="hidden lg:block">
               {onLogout && (
                 <Button
                   onClick={onLogout}
@@ -124,7 +124,7 @@ export function AdminDashboard({ onLogout, adminData }: AdminDashboardProps) {
               )}
             </div>
 
-            <div className="md:hidden">
+            <div className="lg:hidden">
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <Button
@@ -185,10 +185,10 @@ export function AdminDashboard({ onLogout, adminData }: AdminDashboardProps) {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 md:py-0">
+      <div className="container mx-auto px-4 py-8 lg:py-0">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <div className="grid gap-6 md:min-h-[calc(100vh-112px)] md:grid-cols-[240px_minmax(0,1fr)] md:gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
-            <aside className="hidden border-r border-green-100 bg-white md:block">
+          <div className="grid gap-6 lg:min-h-[calc(100vh-112px)] lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-0 xl:grid-cols-[280px_minmax(0,1fr)]">
+            <aside className="hidden border-r border-green-100 bg-white lg:block">
               <div className="sticky top-0 flex min-h-[calc(100vh-112px)] flex-col px-4 py-8">
                 <TabsList className="flex h-auto w-full flex-col gap-2 bg-transparent p-0 shadow-none">
                   {adminTabs.map((tab) => {
@@ -209,7 +209,7 @@ export function AdminDashboard({ onLogout, adminData }: AdminDashboardProps) {
               </div>
             </aside>
 
-            <div className="min-w-0 md:px-6 md:py-8 lg:px-8">
+            <div className="min-w-0 lg:px-6 lg:py-8 xl:px-8">
               <TabsContent value="overview" className="mt-0">
                 {isLoadingStats ? (
                   <div className="flex h-64 items-center justify-center">

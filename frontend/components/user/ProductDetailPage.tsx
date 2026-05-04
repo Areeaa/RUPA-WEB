@@ -6,14 +6,14 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import type { UserData, Product } from '../../types';
-import { 
-  Star, 
-  ChevronLeft, 
-  ChevronRight, 
-  MoreVertical, 
-  Flag, 
+import {
+  Star,
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical,
+  Flag,
   ArrowLeft,
-  MessageCircle, 
+  MessageCircle,
   ShieldAlert,
   AlertTriangle,
   Loader2
@@ -27,7 +27,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -51,32 +50,58 @@ type ProductDetailPageProps = {
   userData: UserData;
   isGuest?: boolean;
   onNavigateToAuth?: () => void;
-  onChatSeller: (product: any) => void; 
+  onChatSeller: (product: any) => void;
   onViewCreator: (creatorId: number, creatorName: string) => void;
+  onProductClick: (product: Product) => void;
 };
 
-export function ProductDetailPage({ product: initialProduct, onBack, userData, isGuest, onViewCreator, onNavigateToAuth, onChatSeller }: ProductDetailPageProps) {
+export function ProductDetailPage({ product: initialProduct, onBack, userData, isGuest, onViewCreator, onChatSeller, onProductClick }: ProductDetailPageProps) {
   const t = getTranslation((userData.language as Language) || 'id');
   const [product, setProduct] = useState(initialProduct);
   const [isLoading, setIsLoading] = useState(false);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [isRelatedLoading, setIsRelatedLoading] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  
+
   const [reportCategory, setReportCategory] = useState('');
   const [reportDescription, setReportDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchFullDetails = async () => {
+      setProduct(initialProduct);
+      setCurrentImageIndex(0);
       setIsLoading(true);
+      setIsRelatedLoading(true);
       try {
         const res = await productService.getById(initialProduct.id);
         const normalized = normalizeProduct(res.data);
         setProduct(normalized);
+
+        try {
+          const productsRes = await productService.getAll();
+          const normalizedProducts: Product[] = (productsRes.data || []).map(normalizeProduct);
+          const categoryName = (normalized.category || '').toLowerCase();
+          const related = normalizedProducts
+            .filter((item) => {
+              if (String(item.id) === String(normalized.id)) return false;
+              if (normalized.categoryId && item.categoryId === normalized.categoryId) return true;
+              return categoryName !== '' && (item.category || '').toLowerCase() === categoryName;
+            })
+            .sort((a, b) => (b.rating || 0) - (a.rating || 0) || (b.sold_count || 0) - (a.sold_count || 0))
+            .slice(0, 4);
+
+          setRelatedProducts(related);
+        } catch (error) {
+          console.error('Failed to fetch related products:', error);
+          setRelatedProducts([]);
+        }
       } catch (error) {
         console.error('Failed to fetch product details:', error);
       } finally {
         setIsLoading(false);
+        setIsRelatedLoading(false);
       }
     };
 
@@ -85,18 +110,8 @@ export function ProductDetailPage({ product: initialProduct, onBack, userData, i
     }
   }, [initialProduct.id]);
 
-  const themeColors: Record<string, { primary: string; light: string; secondary: string }> = {
-    green: { primary: '#16a34a', light: '#22c55e', secondary: '#4ade80' },
-    orange: { primary: '#ea580c', light: '#f97316', secondary: '#fb923c' },
-    blue: { primary: '#2563eb', light: '#3b82f6', secondary: '#60a5fa' },
-    purple: { primary: '#9333ea', light: '#a855f7', secondary: '#c084fc' },
-    pink: { primary: '#db2777', light: '#ec4899', secondary: '#f472b6' },
-  };
-  const currentTheme = themeColors[userData.themeColor || 'green'] || themeColors.green;
-
-  // Build images array from product
-  const productImages = product.images && product.images.length > 0 
-    ? product.images 
+  const productImages = product.images && product.images.length > 0
+    ? product.images
     : [product.image || 'https://placehold.co/800x800?text=No+Image'];
 
   const nextImage = () => setCurrentImageIndex((prev) => (prev === productImages.length - 1 ? 0 : prev + 1));
@@ -126,129 +141,186 @@ export function ProductDetailPage({ product: initialProduct, onBack, userData, i
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-green-50 to-orange-50 pb-12">
-      <div className="container mx-auto px-4 py-8">
-        <Button variant="ghost" onClick={onBack} className="mb-6 hover:bg-white/50 rounded-xl">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-green-50 to-orange-50 pb-10">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:py-7">
+        <Button variant="ghost" onClick={onBack} className="mb-4 rounded-lg hover:bg-white/70">
           <ArrowLeft className="w-5 h-5 mr-2" />
           {t.back || 'Kembali'}
         </Button>
 
-        <Card className="rounded-3xl shadow-xl border-0 overflow-hidden bg-white min-h-[500px] flex items-center justify-center">
+        <Card className="flex min-h-[420px] items-center justify-center overflow-hidden rounded-2xl border border-white/80 bg-white shadow-lg">
           {isLoading ? (
             <div className="flex flex-col items-center gap-4">
               <Loader2 className="w-12 h-12 text-green-500 animate-spin" />
               <p className="text-gray-500">Memuat detail produk...</p>
             </div>
           ) : (
-            <CardContent className="p-0 w-full">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
-              
-              {/* Bagian Kiri: Slider Foto */}
-              <div className="relative bg-gray-100 group aspect-square">
-                <ImageWithFallback src={productImages[currentImageIndex]} alt={product.name} className="w-full h-full object-cover transition-all duration-500" />
-                {productImages.length > 1 && (
-                  <>
-                    <button onClick={prevImage} className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all z-10">
-                      <ChevronLeft className="w-6 h-6 text-gray-800" />
-                    </button>
-                    <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-all z-10">
-                      <ChevronRight className="w-6 h-6 text-gray-800" />
-                    </button>
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 px-3 py-2 bg-black/30 backdrop-blur-md rounded-full">
-                      {productImages.map((_: any, idx: number) => (
-                        <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${currentImageIndex === idx ? 'bg-white w-5' : 'bg-white/50 w-1.5'}`} />
+            <CardContent className="w-full p-0">
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px]">
+                <div className="border-b bg-gray-50 p-3 sm:p-4 lg:border-b-0 lg:border-r">
+                  <div className="relative flex aspect-[4/3] max-h-[560px] items-center justify-center overflow-hidden rounded-xl bg-white group">
+                    <ImageWithFallback src={productImages[currentImageIndex]} alt={product.name} className="h-full w-full object-contain transition-all duration-500" />
+                    {productImages.length > 1 && (
+                      <>
+                        <button onClick={prevImage} className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-lg transition-all hover:bg-white">
+                          <ChevronLeft className="w-5 h-5 text-gray-800" />
+                        </button>
+                        <button onClick={nextImage} className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-lg transition-all hover:bg-white">
+                          <ChevronRight className="w-5 h-5 text-gray-800" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {productImages.length > 1 && (
+                    <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                      {productImages.map((image: string, idx: number) => (
+                        <button
+                          key={`${image}-${idx}`}
+                          onClick={() => setCurrentImageIndex(idx)}
+                          className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-white transition-all ${currentImageIndex === idx ? 'border-green-500 shadow-sm' : 'border-transparent hover:border-gray-300'}`}
+                          aria-label={`Lihat gambar produk ${idx + 1}`}
+                        >
+                          <ImageWithFallback src={image} alt={`${product.name} ${idx + 1}`} className="h-full w-full object-cover" />
+                        </button>
                       ))}
                     </div>
-                  </>
-                )}
-              </div>
+                  )}
+                </div>
 
-              {/* Bagian Kanan: Detail */}
-              <div className="p-8 md:p-12 flex flex-col">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <Badge className="bg-green-100 text-green-700 border border-green-200 mb-3 px-4 py-1.5 rounded-full font-semibold shadow-sm">
-                      {product.category || 'Umum'}
-                    </Badge>
-                    <h1 className="text-3xl font-bold text-gray-800 leading-tight mb-2">{product.name}</h1>
-                    <p className="text-gray-600 text-lg">
-                      oleh{' '}
-                      <span 
-                        className="font-bold text-gray-900 hover:text-green-600 cursor-pointer underline underline-offset-4 decoration-green-200 hover:decoration-green-500 transition-all"
-                        onClick={() => onViewCreator(product.userId, product.creator || 'Kreator')}
-                      >
-                        {product.creator || 'Kreator'}
-                      </span>
+                <div className="flex flex-col p-5 sm:p-6 lg:p-7">
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <Badge className="mb-3 rounded-full border border-green-200 bg-green-100 px-3 py-1 font-semibold text-green-700 shadow-sm">
+                        {product.category || 'Umum'}
+                      </Badge>
+                      <h1 className="text-2xl font-bold leading-tight text-gray-900 sm:text-3xl">{product.name}</h1>
+                      <p className="mt-2 text-sm text-gray-600 sm:text-base">
+                        oleh{' '}
+                        <span
+                          className="cursor-pointer font-bold text-gray-900 underline decoration-green-200 underline-offset-4 transition-all hover:text-green-600 hover:decoration-green-500"
+                          onClick={() => onViewCreator(product.userId, product.creator || 'Kreator')}
+                        >
+                          {product.creator || 'Kreator'}
+                        </span>
+                      </p>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-gray-100">
+                          <MoreVertical className="w-5 h-5 text-gray-600" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="rounded-xl border-gray-100 p-1 shadow-lg">
+                        <DropdownMenuItem onClick={() => setIsReportModalOpen(true)} className="cursor-pointer gap-2 rounded-lg py-2 text-red-600 focus:bg-red-50 focus:text-red-700">
+                          <Flag className="w-4 h-4" />
+                          Laporkan Produk
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="mb-5 flex items-center gap-3 text-sm">
+                    <div className="flex items-center rounded-lg bg-yellow-50 px-2 py-1">
+                      <Star className="mr-1.5 h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span className="font-bold text-yellow-700">{product.rating || '0'}</span>
+                    </div>
+                    <span className="text-gray-300">/</span>
+                    <div className="flex items-center">
+                      <span className="mr-1 font-semibold text-gray-800">{product.sold_count || '0'}</span>
+                      <span className="text-gray-500">Terjual</span>
+                    </div>
+                  </div>
+
+                  <div className="mb-6 rounded-xl bg-gray-50 p-4">
+                    <h3 className="mb-2 font-semibold text-gray-800">Deskripsi Produk</h3>
+                    <p className="text-sm leading-relaxed text-gray-600 sm:text-base">
+                      {product.description || 'Karya seni unik yang dibuat dengan tangan menggunakan teknik tradisional yang dikombinasikan dengan desain modern.'}
                     </p>
                   </div>
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="rounded-full hover:bg-gray-100">
-                        <MoreVertical className="w-6 h-6 text-gray-600" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="rounded-xl shadow-lg border-gray-100 p-1">
-                      <DropdownMenuItem onClick={() => setIsReportModalOpen(true)} className="text-red-600 focus:text-red-700 focus:bg-red-50 cursor-pointer gap-2 py-2 rounded-lg">
-                        <Flag className="w-4 h-4" />
-                        Laporkan Produk
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="flex items-center bg-yellow-50 px-2 py-1 rounded-lg">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 mr-1.5" />
-                    <span className="font-bold text-yellow-700">{product.rating || '0'}</span>
-                  </div>
-                  <span className="text-gray-300">•</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 font-semibold mr-1">{product.sold_count || '0'}</span>
-                    <span className="text-gray-500">Terjual</span>
-                  </div>
-                </div>
-
-                <div className="mb-8">
-                  <h3 className="text-gray-800 font-semibold mb-2">Deskripsi Produk</h3>
-                  <p className="text-gray-600 leading-relaxed line-clamp-6">
-                    {product.description || 'Karya seni unik yang dibuat dengan tangan menggunakan teknik tradisional yang dikombinasikan dengan desain modern.'}
-                  </p>
-                </div>
-
-                <div className="mt-auto pt-6 border-t">
-                  <div className="flex items-end justify-between mb-6">
-                    <div>
-                      <p className="text-gray-500 text-sm mb-1">Harga</p>
-                      <span className="text-4xl font-bold text-green-700">Rp {getPrice().toLocaleString('id-ID')}</span>
+                  <div className="mt-auto border-t pt-5">
+                    <div className="mb-5">
+                      <p className="mb-1 text-sm text-gray-500">Harga</p>
+                      <span className="text-3xl font-bold text-green-700 sm:text-4xl">Rp {getPrice().toLocaleString('id-ID')}</span>
                     </div>
-                  </div>
 
-                  <Button 
-                    onClick={() => onChatSeller(product)}
-                    className="w-full rounded-2xl h-14 text-lg text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all bg-gradient-to-r from-[var(--theme-light)] to-[var(--theme-secondary)]"
-                  >
-                    <MessageCircle className="w-5 h-5 mr-2" />
-                    Chat Penjual
-                  </Button>
+                    <Button
+                      onClick={() => onChatSeller(product)}
+                      className="h-12 w-full rounded-xl bg-gradient-to-r from-[var(--theme-light)] to-[var(--theme-secondary)] text-base text-white shadow-md transition-all hover:shadow-lg"
+                    >
+                      <MessageCircle className="w-5 h-5 mr-2" />
+                      Chat Penjual
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        )}
-      </Card>
+            </CardContent>
+          )}
+        </Card>
 
-      {/* REVIEW SECTION */}
-      {!isLoading && product && (
-        <ReviewSection 
-          productId={product.id} 
-          userData={userData} 
-          isGuest={isGuest} 
-        />
-      )}
+        {!isLoading && product && (
+          <ReviewSection
+            productId={product.id}
+            userData={userData}
+            isGuest={isGuest}
+          />
+        )}
+
+        {!isLoading && (isRelatedLoading || relatedProducts.length > 0) && (
+          <section className="mt-6 rounded-2xl border border-white/80 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-4 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">Rekomendasi Produk Serupa</h2>
+                <p className="text-sm text-gray-500">Pilihan lain dari kategori {product.category || 'yang sama'}</p>
+              </div>
+            </div>
+
+            {isRelatedLoading ? (
+              <div className="flex items-center justify-center py-10 text-gray-500">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin text-green-500" />
+                Memuat rekomendasi...
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+                {relatedProducts.map((item) => (
+                  <Card
+                    key={item.id}
+                    className="group cursor-pointer overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-all hover:shadow-lg"
+                    onClick={() => onProductClick(item)}
+                  >
+                    <div className="relative aspect-[6/5] overflow-hidden bg-gray-100">
+                      <ImageWithFallback
+                        src={item.image || item.images?.[0] || ''}
+                        alt={item.name}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <Badge className="absolute right-2 top-2 border-0 bg-white/90 text-[10px] text-gray-800 shadow-sm backdrop-blur md:text-xs">
+                        {item.category}
+                      </Badge>
+                    </div>
+                    <CardContent className="p-3">
+                      <h3 className="mb-1 line-clamp-1 text-sm font-semibold text-gray-800 transition-colors group-hover:text-green-600">{item.name}</h3>
+                      <p className="mb-2 line-clamp-1 text-xs text-gray-500">oleh {item.creator}</p>
+                      <div className="flex items-center justify-between border-t border-gray-50 pt-2">
+                        <span className="text-sm font-bold text-[var(--theme-primary)]">
+                          Rp {(typeof item.price === 'number' ? item.price : parseInt(String(item.price)) || 0).toLocaleString('id-ID')}
+                        </span>
+                        <div className="flex items-center gap-1 text-xs text-gray-700">
+                          <Star className="h-3.5 w-3.5" fill={item.rating ? '#fac824' : 'transparent'} color={item.rating ? '#fac824' : '#d1d5db'} />
+                          {item.rating ? item.rating.toFixed(1) : '0'}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
-      {/* MODAL PELAPORAN */}
       <Dialog open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
         <DialogContent className="sm:max-w-[450px] rounded-3xl p-6 overflow-hidden">
           <DialogHeader>

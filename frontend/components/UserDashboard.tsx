@@ -1,17 +1,19 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import type { UserData, Product } from '../types';
-import { HomePage } from './user/HomePage';
-import { ProfilePage } from './user/ProfilePage';
-import { DonationPage } from './user/DonationPage';
-import { LicensePage } from './user/LicensePage';
-import { SettingsPage } from './user/SettingsPage';
-import { OrdersPage } from './user/OrdersPage';
-import { ReturnPage } from './user/ReturnPage';
-import { OnboardingTutorial } from './user/OnboardingTutorial';
-import { ProductDetailPage } from './user/ProductDetailPage';
-import { ChatListPage } from './user/ChatListPage';
-import { ChatRoomPage } from './user/ChatRoomPage';
-import { CreatorProfilePage } from './user/CreatorProfilePage';
+
+// Lazy-loaded page components — hanya di-load saat pertama kali dikunjungi
+const HomePage            = lazy(() => import('./user/HomePage').then(m => ({ default: m.HomePage })));
+const ProfilePage         = lazy(() => import('./user/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const DonationPage        = lazy(() => import('./user/DonationPage').then(m => ({ default: m.DonationPage })));
+const LicensePage         = lazy(() => import('./user/LicensePage').then(m => ({ default: m.LicensePage })));
+const SettingsPage        = lazy(() => import('./user/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const OrdersPage          = lazy(() => import('./user/OrdersPage').then(m => ({ default: m.OrdersPage })));
+const ReturnPage          = lazy(() => import('./user/ReturnPage').then(m => ({ default: m.ReturnPage })));
+const OnboardingTutorial  = lazy(() => import('./user/OnboardingTutorial').then(m => ({ default: m.OnboardingTutorial })));
+const ProductDetailPage   = lazy(() => import('./user/ProductDetailPage').then(m => ({ default: m.ProductDetailPage })));
+const ChatListPage        = lazy(() => import('./user/ChatListPage').then(m => ({ default: m.ChatListPage })));
+const ChatRoomPage        = lazy(() => import('./user/ChatRoomPage').then(m => ({ default: m.ChatRoomPage })));
+const CreatorProfilePage  = lazy(() => import('./user/CreatorProfilePage').then(m => ({ default: m.CreatorProfilePage })));
 import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
 import {
@@ -31,6 +33,7 @@ import { useAuth } from '../hooks/useAuth';
 import { THEME_COLORS } from '../data/constants';
 import { useNavigate } from 'react-router-dom';
 import { chatService } from '../utils/apiServices';
+import { UserFooter } from './user/UserFooter';
 
 type UserDashboardProps = {
   isGuest?: boolean;
@@ -62,6 +65,7 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
   const handleProductClick = (product: Product) => {
     setSelectedProduct(product);
     setActivePage('product-detail');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const t = getTranslation((userData?.language as Language) || 'id');
@@ -106,7 +110,9 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
       }
     >
       {showOnboarding && userData ? (
-        <OnboardingTutorial username={userData.name || userData.username || ''} onComplete={handleOnboardingComplete} />
+        <Suspense fallback={null}>
+          <OnboardingTutorial username={userData.name || userData.username || ''} onComplete={handleOnboardingComplete} />
+        </Suspense>
       ) : userData ? (
         <>
           <div className="sticky top-0 z-50 bg-gradient-to-r from-[var(--theme-light)] to-[var(--theme-secondary)] text-white shadow-lg">
@@ -122,7 +128,7 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
                   </div>
                 </div>
 
-                <div className="hidden items-center gap-2 overflow-x-auto md:flex">
+                <div className="hidden items-center gap-2 overflow-x-auto lg:flex">
                   {navItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activePage === item.id || (activePage === 'product-detail' && item.id === 'home');
@@ -147,7 +153,7 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
                   })}
                 </div>
 
-                <div className="md:hidden">
+                <div className="lg:hidden">
                   <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                     <SheetTrigger asChild>
                       <Button
@@ -203,100 +209,121 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
           </div>
 
           <div className="min-h-screen">
-            {activePage === 'home' && (
-              <HomePage
-                userData={userData}
-                onProductClick={handleProductClick}
-                navigateToOrders={() => (isGuest ? navigate('/login') : setActivePage('orders'))}
-                isGuest={isGuest}
-              />
-            )}
+            <Suspense fallback={
+              <div className="flex min-h-[60vh] items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div
+                    className="h-10 w-10 animate-spin rounded-full border-4 border-transparent"
+                    style={{ borderTopColor: 'var(--theme-primary)' }}
+                  />
+                  <p className="text-sm text-gray-400">Memuat halaman…</p>
+                </div>
+              </div>
+            }>
+              {activePage === 'home' && (
+                <HomePage
+                  userData={userData}
+                  onProductClick={handleProductClick}
+                  navigateToOrders={() => (isGuest ? navigate('/login') : setActivePage('orders'))}
+                  isGuest={isGuest}
+                />
+              )}
 
-            {activePage === 'creator-profile' && (
-              <CreatorProfilePage
-                userData={userData}
-                creatorId={viewingCreator?.id || 0}
-                creatorName={viewingCreator?.name || ''}
-                onBack={() => setActivePage('product-detail')}
-                onProductClick={handleProductClick}
-                onChatSeller={async (product) => {
-                  try {
-                    const res = await chatService.startChat(product.id);
-                    const conv = res.data;
-                    setChatCreatorName(product.creator || 'Kreator');
-                    setChatContextProduct(product);
-                    setCurrentConversationId(conv.conversationId || conv.id);
+              {activePage === 'creator-profile' && (
+                <CreatorProfilePage
+                  userData={userData}
+                  creatorId={viewingCreator?.id || 0}
+                  creatorName={viewingCreator?.name || ''}
+                  onBack={() => setActivePage('product-detail')}
+                  onProductClick={handleProductClick}
+                  onChatSeller={async (product) => {
+                    try {
+                      const res = await chatService.startChat(product.id);
+                      const conv = res.data;
+                      setChatCreatorName(product.creator || 'Kreator');
+                      setChatContextProduct(product);
+                      setCurrentConversationId(conv.conversationId || conv.id);
+                      setActivePage('chat-room');
+                    } catch (error: any) {
+                      toast.error(error.response?.data?.message || 'Gagal memulai chat');
+                    }
+                  }}
+                />
+              )}
+
+              {activePage === 'product-detail' && selectedProduct && (
+                <ProductDetailPage
+                  product={selectedProduct}
+                  userData={userData}
+                  onBack={() => setActivePage('home')}
+                  isGuest={isGuest}
+                  onNavigateToAuth={() => navigate('/login')}
+                  onChatSeller={async (product) => {
+                    if (isGuest) {
+                      toast('Silakan masuk/daftar untuk mengirim pesan', { icon: '🔒' });
+                      navigate('/login');
+                      return;
+                    }
+
+                    try {
+                      const res = await chatService.startChat(product.id);
+                      const conv = res.data;
+                      setChatCreatorName(product.creator || 'Kreator');
+                      setChatContextProduct(product);
+                      setCurrentConversationId(conv.conversationId || conv.id);
+                      setActivePage('chat-room');
+                    } catch (error: any) {
+                      toast.error(error.response?.data?.message || 'Gagal memulai chat');
+                    }
+                  }}
+                  onViewCreator={(creatorId, creatorName) => {
+                    setViewingCreator({ id: creatorId, name: creatorName });
+                    setActivePage('creator-profile');
+                  }}
+                  onProductClick={(product) => {
+                    setSelectedProduct(product);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                />
+              )}
+
+              {activePage === 'chat' && (
+                <ChatListPage
+                  userData={userData}
+                  onBack={() => setActivePage('home')}
+                  onOpenChat={(chatId, creatorName) => {
+                    setChatCreatorName(creatorName);
+                    setChatContextProduct(null);
+                    setCurrentConversationId(chatId);
                     setActivePage('chat-room');
-                  } catch (error: any) {
-                    toast.error(error.response?.data?.message || 'Gagal memulai chat');
-                  }
-                }}
-              />
-            )}
+                  }}
+                />
+              )}
 
-            {activePage === 'product-detail' && selectedProduct && (
-              <ProductDetailPage
-                product={selectedProduct}
-                userData={userData}
-                onBack={() => setActivePage('home')}
-                isGuest={isGuest}
-                onNavigateToAuth={() => navigate('/login')}
-                onChatSeller={async (product) => {
-                  if (isGuest) {
-                    toast('Silakan masuk/daftar untuk mengirim pesan', { icon: '🔒' });
-                    navigate('/login');
-                    return;
-                  }
+              {activePage === 'chat-room' && (
+                <ChatRoomPage
+                  userData={userData}
+                  onBack={() => setActivePage(chatContextProduct ? 'product-detail' : 'chat')}
+                  onNavigateToOrders={() => setActivePage('orders')}
+                  creatorName={chatCreatorName}
+                  product={chatContextProduct}
+                  conversationId={currentConversationId}
+                />
+              )}
 
-                  try {
-                    const res = await chatService.startChat(product.id);
-                    const conv = res.data;
-                    setChatCreatorName(product.creator || 'Kreator');
-                    setChatContextProduct(product);
-                    setCurrentConversationId(conv.conversationId || conv.id);
-                    setActivePage('chat-room');
-                  } catch (error: any) {
-                    toast.error(error.response?.data?.message || 'Gagal memulai chat');
-                  }
-                }}
-                onViewCreator={(creatorId, creatorName) => {
-                  setViewingCreator({ id: creatorId, name: creatorName });
-                  setActivePage('creator-profile');
-                }}
-              />
-            )}
-
-            {activePage === 'chat' && (
-              <ChatListPage
-                userData={userData}
-                onBack={() => setActivePage('home')}
-                onOpenChat={(chatId, creatorName) => {
-                  setChatCreatorName(creatorName);
-                  setChatContextProduct(null);
-                  setCurrentConversationId(chatId);
-                  setActivePage('chat-room');
-                }}
-              />
-            )}
-
-            {activePage === 'chat-room' && (
-              <ChatRoomPage
-                userData={userData}
-                onBack={() => setActivePage(chatContextProduct ? 'product-detail' : 'chat')}
-                onNavigateToOrders={() => setActivePage('orders')}
-                creatorName={chatCreatorName}
-                product={chatContextProduct}
-                conversationId={currentConversationId}
-              />
-            )}
-
-            {activePage === 'profile' && !isGuest && <ProfilePage userData={userData} updateUserData={updateUser} />}
-            {activePage === 'orders' && <OrdersPage userData={userData} onNavigateToReturn={() => setActivePage('return')} />}
-            {activePage === 'donation' && <DonationPage userData={userData} />}
-            {activePage === 'license' && <LicensePage userData={userData} />}
-            {activePage === 'settings' && <SettingsPage userData={userData} updateUserData={updateUser} onLogout={logout} />}
-            {activePage === 'return' && <ReturnPage userData={userData} />}
+              {activePage === 'profile' && !isGuest && <ProfilePage userData={userData} updateUserData={updateUser} />}
+              {activePage === 'orders' && <OrdersPage userData={userData} onNavigateToReturn={() => setActivePage('return')} />}
+              {activePage === 'donation' && <DonationPage userData={userData} />}
+              {activePage === 'license' && <LicensePage userData={userData} />}
+              {activePage === 'settings' && <SettingsPage userData={userData} updateUserData={updateUser} onLogout={logout} />}
+              {activePage === 'return' && <ReturnPage userData={userData} />}
+            </Suspense>
           </div>
+
+          {/* Footer — hanya muncul di halaman yang relevan, bukan di chat/detail */}
+          {!['chat', 'chat-room', 'product-detail', 'creator-profile'].includes(activePage) && (
+            <UserFooter isGuest={isGuest} onNavigate={handleMenuClick} />
+          )}
         </>
       ) : null}
     </div>

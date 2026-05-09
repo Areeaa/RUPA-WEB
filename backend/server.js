@@ -15,6 +15,8 @@ const Order = require('./models/Order');
 const OrderItem = require('./models/OrderItem');
 const Review = require('./models/Review');
 const LicenseApplication = require('./models/LicenseApplication');
+const ProductReport = require('./models/ProductReport');
+const Donation = require('./models/Donation');
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes'); 
@@ -26,6 +28,8 @@ const chatRoutes = require('./routes/chatRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const licenseRoutes = require('./routes/licenseRoutes');
+const reportRoutes = require('./routes/reportRoutes');
+const donationRoutes = require('./routes/donationRoutes');
 
 dotenv.config();
 
@@ -54,6 +58,8 @@ app.use('/api/chats', chatRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/licenses', licenseRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/donations', donationRoutes);
 
 
 // Route dasar

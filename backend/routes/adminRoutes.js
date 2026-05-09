@@ -1,9 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const { getPendingCreators, verifyCreator } = require("../controllers/adminController");
+const { getPendingCreators, verifyCreator, getAdmins, createAdmin, sendAdminPasswordReset } = require("../controllers/adminController");
 const { createCategory, updateCategory, deleteCategory } = require("../controllers/categoryController");
 const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 const { getPendingLicenses, verifyLicense } = require('../controllers/licenseController');
+const { getProductReports, reviewProductReport } = require('../controllers/productReportController');
+const { getDonations, getDonationStats, reviewDonation } = require('../controllers/donationController');
 const { 
   getSystemStats, 
   getDailyTransactions, 
@@ -16,6 +18,11 @@ router.use(verifyToken, isAdmin);
 
 // GET: /api/admin/stats
 router.get('/stats', getSystemStats);
+
+// Admin account management
+router.get('/admins', getAdmins);
+router.post('/admins', createAdmin);
+router.post('/admins/:id/password-reset', sendAdminPasswordReset);
 
 // GET: /api/admin/analytics/daily
 router.get('/analytics/daily', getDailyTransactions);
@@ -44,5 +51,14 @@ router.delete("/categories/:id", deleteCategory);
 // Rute Pengajuan Lisensi (Hanya Admin)
 router.get('/licenses/pending', getPendingLicenses);
 router.put('/licenses/verify/:id', verifyLicense);
+
+// Rute Pelaporan Produk (Hanya Admin)
+router.get('/reports/products', getProductReports);
+router.put('/reports/products/:id', reviewProductReport);
+
+// Rute Donasi Kreator (Hanya Admin)
+router.get('/donations', getDonations);
+router.get('/donations/stats', getDonationStats);
+router.put('/donations/:id', reviewDonation);
 
 module.exports = router;

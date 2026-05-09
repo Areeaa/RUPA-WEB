@@ -1,16 +1,23 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { SignUpPage } from './components/SignUpPage';
 import { LoginPage } from './components/LoginPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AdminLoginPage } from './components/AdminLoginPage';
+import { ResetPasswordPage } from './components/ResetPasswordPage';
 import { UserDashboard } from './components/UserDashboard';
 import { Toaster } from './components/ui/sonner';
 import { useAuth } from './hooks/useAuth';
 import { THEME_COLORS } from './data/constants';
 
 export default function App() {
+  const location = useLocation();
   const { authState, isLoading, manualAdminLogin, logout, updateUser } = useAuth();
   const { isAuthenticated, userType, userData } = authState;
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname]);
 
   if (isLoading) {
     return (
@@ -77,6 +84,11 @@ export default function App() {
               />
             )
           } 
+        />
+
+        <Route
+          path="/reset-password/:token"
+          element={<ResetPasswordPage />}
         />
 
         {/* Admin Route */}

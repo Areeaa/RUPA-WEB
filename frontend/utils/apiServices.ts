@@ -42,6 +42,8 @@ export const productService = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   delete: (id: string | number) => api.delete(`/products/${id}`),
+  report: (id: string | number, data: { reason: string; description: string }) =>
+    api.post(`/reports/products/${id}`, data),
 };
 
 // --- Order Services ---
@@ -87,8 +89,17 @@ export const licenseService = {
   getMyLicenses: () => api.get('/licenses/my-licenses'),
 };
 
+// --- Donation Services ---
+export const donationService = {
+  create: (data: { creatorId: number; amount: number; message?: string }) =>
+    api.post('/donations', data),
+};
+
 // --- Admin Services ---
 export const adminService = {
+  getAdmins: () => api.get('/admin/admins'),
+  createAdmin: (data: { name: string; email: string }) => api.post('/admin/admins', data),
+  sendAdminPasswordReset: (id: number) => api.post(`/admin/admins/${id}/password-reset`),
   getPendingCreators: () => api.get('/admin/creators/pending'),
   verifyCreator: (userId: number, action: 'approve' | 'reject') => 
     api.put(`/admin/creators/verify/${userId}`, { action }),
@@ -105,4 +116,16 @@ export const adminService = {
   getDailyTransactions: () => api.get('/admin/analytics/daily'),
   getTopCreators: () => api.get('/admin/analytics/creators'),
   getTopProductsPerCategory: () => api.get('/admin/analytics/products'),
+  // Product reports
+  getProductReports: (status?: string) => api.get('/admin/reports/products', { params: status ? { status } : {} }),
+  reviewProductReport: (
+    id: number,
+    action: 'review' | 'resolve' | 'reject' | 'suspend_product' | 'activate_product',
+    resolution?: string,
+  ) => api.put(`/admin/reports/products/${id}`, { action, resolution }),
+  // Donations
+  getDonations: (status?: string) => api.get('/admin/donations', { params: status ? { status } : {} }),
+  getDonationStats: () => api.get('/admin/donations/stats'),
+  reviewDonation: (id: number, action: 'approve' | 'reject' | 'distribute', adminNote?: string) =>
+    api.put(`/admin/donations/${id}`, { action, adminNote }),
 };

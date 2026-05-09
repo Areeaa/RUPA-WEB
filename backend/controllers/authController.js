@@ -121,6 +121,8 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+const getFrontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173';
+
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
   const user = await User.findOne({ where: { email } });
@@ -134,7 +136,7 @@ const forgotPassword = async (req, res) => {
   await user.save();
 
   // Kirim Email
-  const resetUrl = `http://localhost:3000/reset-password/${token}`;
+  const resetUrl = `${getFrontendUrl()}/reset-password/${token}`;
   const mailOptions = {
     to: user.email,
     subject: 'Pemulihan Kata Sandi - Figma Rupa',

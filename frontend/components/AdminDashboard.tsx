@@ -12,6 +12,7 @@ import {
   Shield,
   Loader2,
   Menu,
+  Heart,
 } from 'lucide-react';
 import type { UserData } from '../types';
 import { toast } from 'sonner';
@@ -22,6 +23,8 @@ import { AdminUsers } from './admin/AdminUsers';
 import { AdminAnalytics } from './admin/AdminAnalytics';
 import { AdminLicenses } from './admin/AdminLicenses';
 import { AdminCategories } from './admin/AdminCategories';
+import { AdminReports } from './admin/AdminReports';
+import { AdminDonations } from './admin/AdminDonations';
 
 type AdminDashboardProps = {
   onLogout?: () => void;
@@ -39,7 +42,9 @@ const adminTabs = [
   { value: 'users', label: 'Pengguna', icon: Users },
   { value: 'analytics', label: 'Analytics', icon: TrendingUp },
   { value: 'licenses', label: 'Lisensi', icon: FileText },
-  { value: 'categories', label: 'Kategori', icon: Flag },
+  { value: 'donations', label: 'Donasi', icon: Heart },
+  { value: 'reports', label: 'Laporan', icon: Flag },
+  { value: 'categories', label: 'Kategori', icon: Shield },
 ] as const;
 
 export function AdminDashboard({ onLogout, adminData }: AdminDashboardProps) {
@@ -72,6 +77,7 @@ export function AdminDashboard({ onLogout, adminData }: AdminDashboardProps) {
         const mappedCreators = (creatorsRes.data || []).map((creator: any) => ({
           name: creator.name,
           works: Number(creator.total_products || 0),
+          sales: Number(creator.total_sales || 0),
           revenue: `Rp ${Number(creator.total_income || 0).toLocaleString('id-ID')}`,
         }));
 
@@ -240,6 +246,14 @@ export function AdminDashboard({ onLogout, adminData }: AdminDashboardProps) {
 
               <TabsContent value="licenses" className="mt-0">
                 <AdminLicenses />
+              </TabsContent>
+
+              <TabsContent value="donations" className="mt-0">
+                <AdminDonations />
+              </TabsContent>
+
+              <TabsContent value="reports" className="mt-0">
+                <AdminReports />
               </TabsContent>
 
               <TabsContent value="categories" className="mt-0">

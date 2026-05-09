@@ -13,6 +13,7 @@ import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { productService, orderService } from '../../utils/apiServices';
 import { normalizeProduct } from './HomePage';
 import { CreatorApplication } from './CreatorApplication';
+import { formatRupiahInput, getCurrencyDigits } from '../../utils/currency';
 
 type ProfilePageProps = {
   userData: UserData;
@@ -145,7 +146,7 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
     setFormData({
       title: product.name,
       description: product.description || '',
-      price: String(product.price),
+      price: formatRupiahInput(product.price),
       category: String(product.categoryId || ''),
     });
     setImagePreviews(product.images || [product.image].filter(Boolean) as string[]);
@@ -170,7 +171,7 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
       const data = new FormData();
       data.append('name', formData.title);
       data.append('description', formData.description);
-      data.append('price', formData.price);
+      data.append('price', getCurrencyDigits(formData.price));
       data.append('categoryId', formData.category);
       
       imageFiles.forEach(file => {
@@ -356,7 +357,15 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label className="text-gray-700">Harga (Rp)</Label>
-                      <Input type="number" placeholder="50000" className="rounded-xl" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} />
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9.]*"
+                        placeholder="50.000"
+                        className="rounded-xl"
+                        value={formData.price}
+                        onChange={(e) => setFormData({ ...formData, price: formatRupiahInput(e.target.value) })}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-gray-700">Kategori</Label>

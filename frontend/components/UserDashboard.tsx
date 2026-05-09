@@ -1,10 +1,9 @@
-import { useState, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import type { UserData, Product } from '../types';
 
 // Lazy-loaded page components — hanya di-load saat pertama kali dikunjungi
 const HomePage            = lazy(() => import('./user/HomePage').then(m => ({ default: m.HomePage })));
 const ProfilePage         = lazy(() => import('./user/ProfilePage').then(m => ({ default: m.ProfilePage })));
-const DonationPage        = lazy(() => import('./user/DonationPage').then(m => ({ default: m.DonationPage })));
 const LicensePage         = lazy(() => import('./user/LicensePage').then(m => ({ default: m.LicensePage })));
 const SettingsPage        = lazy(() => import('./user/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const OrdersPage          = lazy(() => import('./user/OrdersPage').then(m => ({ default: m.OrdersPage })));
@@ -18,7 +17,6 @@ import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
 import {
   Home,
-  Heart,
   FileText,
   Settings,
   Sparkles,
@@ -52,6 +50,16 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
   const [currentConversationId, setCurrentConversationId] = useState<string | number | undefined>(undefined);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [activePage]);
+
+  useEffect(() => {
+    if (isGuest && !['home', 'license'].includes(activePage)) {
+      setActivePage('home');
+    }
+  }, [activePage, isGuest]);
+
   const currentTheme =
     userData && userData.themeColor
       ? THEME_COLORS[userData.themeColor as keyof typeof THEME_COLORS] || THEME_COLORS.green
@@ -75,7 +83,6 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
     { id: 'chat', label: 'Pesan', icon: MessageCircle },
     { id: 'orders', label: t.orders, icon: Package },
     { id: 'profile', label: isGuest ? 'Masuk / Daftar' : 'Toko Saya', icon: Store },
-    { id: 'donation', label: t.donation, icon: Heart },
     { id: 'license', label: t.license, icon: FileText },
     { id: 'settings', label: t.settings, icon: Settings },
   ];
@@ -83,7 +90,7 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
   const navItems = isGuest ? allNavItems.filter((item) => ['home', 'profile'].includes(item.id)) : allNavItems;
 
   const handleMenuClick = (id: string) => {
-    if (isGuest && (id === 'profile' || id === 'chat')) {
+    if (isGuest && (id === 'profile' || id === 'chat' || id === 'settings')) {
       if (id === 'chat') {
         toast('Silakan masuk/daftar untuk melihat pesan', { icon: '🔒' });
       }
@@ -95,6 +102,13 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
 
     setActivePage(id);
     setIsMobileMenuOpen(false);
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  };
+
+  const handleLogout = () => {
+    setActivePage('home');
+    setIsMobileMenuOpen(false);
+    logout();
   };
 
   return (
@@ -313,9 +327,8 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
 
               {activePage === 'profile' && !isGuest && <ProfilePage userData={userData} updateUserData={updateUser} />}
               {activePage === 'orders' && <OrdersPage userData={userData} onNavigateToReturn={() => setActivePage('return')} />}
-              {activePage === 'donation' && <DonationPage userData={userData} />}
               {activePage === 'license' && <LicensePage userData={userData} />}
-              {activePage === 'settings' && <SettingsPage userData={userData} updateUserData={updateUser} onLogout={logout} />}
+              {activePage === 'settings' && !isGuest && <SettingsPage userData={userData} updateUserData={updateUser} onLogout={handleLogout} />}
               {activePage === 'return' && <ReturnPage userData={userData} />}
             </Suspense>
           </div>

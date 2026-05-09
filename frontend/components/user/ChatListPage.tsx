@@ -47,6 +47,9 @@ export function ChatListPage({ userData, onBack, onOpenChat }: ChatListPageProps
     
     if (diffDays === 0) return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     if (diffDays === 1) return 'Kemarin';
+    if (date.getFullYear() !== now.getFullYear()) {
+      return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
   };
 

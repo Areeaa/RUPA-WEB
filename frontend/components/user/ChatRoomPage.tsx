@@ -235,6 +235,38 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
     return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const isSameDay = (firstDateStr?: string, secondDateStr?: string) => {
+    if (!firstDateStr || !secondDateStr) return false;
+    const firstDate = new Date(firstDateStr);
+    const secondDate = new Date(secondDateStr);
+
+    return (
+      firstDate.getFullYear() === secondDate.getFullYear() &&
+      firstDate.getMonth() === secondDate.getMonth() &&
+      firstDate.getDate() === secondDate.getDate()
+    );
+  };
+
+  const formatDateDivider = (dateStr: string) => {
+    if (!dateStr) return '';
+
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (isSameDay(dateStr, today.toISOString())) return 'Hari ini';
+    if (isSameDay(dateStr, yesterday.toISOString())) return 'Kemarin';
+
+    const includeYear = date.getFullYear() !== today.getFullYear();
+    return date.toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      ...(includeYear ? { year: 'numeric' } : {}),
+    });
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-50/50">
       
@@ -309,99 +341,111 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
             <p>Belum ada pesan. Mulai percakapan!</p>
           </div>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg, index) => {
             const isSender = msg.senderId === userData.id;
             const isPurchaseRequest = msg.type === 'purchase_request';
             const isInvoice = msg.type === 'invoice';
+            const previousMessage = messages[index - 1];
+            const shouldShowDateDivider = !previousMessage || !isSameDay(previousMessage.createdAt, msg.createdAt);
 
             return (
-              <div key={msg.id} className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}>
-                <div 
-                  className={`max-w-[80%] md:max-w-[60%] px-4 py-2.5 shadow-sm relative rounded-2xl ${
-                    isSender 
-                      ? 'text-white rounded-tr-sm' 
-                      : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm'
-                  } ${
-                    isPurchaseRequest 
-                      ? (isSender ? 'bg-orange-500' : 'bg-orange-50 border-orange-200 text-orange-900') 
-                      : isInvoice 
-                        ? (isSender ? 'bg-green-600' : 'bg-green-50 border-green-200 text-green-900')
-                        : ''
-                  }`}
-                  style={isSender && !isPurchaseRequest && !isInvoice ? { backgroundImage: `linear-gradient(to right, ${currentTheme.light}, ${currentTheme.secondary})` } : {}}
-                >
-                  {/* Purchase Request Header */}
-                  {isPurchaseRequest && (
-                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-orange-100">
-                      <ShoppingBag className={`w-4 h-4 ${isSender ? 'text-white' : 'text-orange-500'}`} />
-                      <span className={`text-xs font-bold uppercase tracking-wider ${isSender ? 'text-white' : 'text-orange-600'}`}>
-                        Permintaan Pembelian
-                      </span>
-                    </div>
-                  )}
+              <div key={msg.id} className="space-y-3">
+                {shouldShowDateDivider && (
+                  <div className="flex items-center justify-center py-2">
+                    <span className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-500 shadow-sm">
+                      {formatDateDivider(msg.createdAt)}
+                    </span>
+                  </div>
+                )}
 
-                  {/* Invoice Header */}
-                  {isInvoice && (
-                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-green-100">
-                      <ShieldCheck className={`w-4 h-4 ${isSender ? 'text-white' : 'text-green-500'}`} />
-                      <span className={`text-xs font-bold uppercase tracking-wider ${isSender ? 'text-white' : 'text-green-600'}`}>
-                        Tagihan Pembayaran
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Product info context */}
-
-                  {(msg.product_info || isPurchaseRequest) && (
-                    <div className={`flex items-center gap-3 p-2 rounded-xl mb-2 ${
-                      isSender ? 'bg-white/20' : (isPurchaseRequest ? 'bg-orange-100/50' : (isInvoice ? 'bg-green-100/50' : 'bg-gray-50'))
-                    }`}>
-                      <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-black/5">
-                        <ImageWithFallback 
-                          src={msg.product_info?.images?.[0] || msg.product_info?.image || ''} 
-                          alt={msg.product_info?.name || 'Produk'} 
-                          className="w-full h-full object-cover" 
-                        />
+                <div className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}>
+                  <div 
+                    className={`max-w-[80%] md:max-w-[60%] px-4 py-2.5 shadow-sm relative rounded-2xl ${
+                      isSender 
+                        ? 'text-white rounded-tr-sm' 
+                        : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm'
+                    } ${
+                      isPurchaseRequest 
+                        ? (isSender ? 'bg-orange-500' : 'bg-orange-50 border-orange-200 text-orange-900') 
+                        : isInvoice 
+                          ? (isSender ? 'bg-green-600' : 'bg-green-50 border-green-200 text-green-900')
+                          : ''
+                    }`}
+                    style={isSender && !isPurchaseRequest && !isInvoice ? { backgroundImage: `linear-gradient(to right, ${currentTheme.light}, ${currentTheme.secondary})` } : {}}
+                  >
+                    {/* Purchase Request Header */}
+                    {isPurchaseRequest && (
+                      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-orange-100">
+                        <ShoppingBag className={`w-4 h-4 ${isSender ? 'text-white' : 'text-orange-500'}`} />
+                        <span className={`text-xs font-bold uppercase tracking-wider ${isSender ? 'text-white' : 'text-orange-600'}`}>
+                          Permintaan Pembelian
+                        </span>
                       </div>
-                      <div className="min-w-0">
-                        <p className={`text-xs font-bold truncate ${isSender ? 'text-white' : 'text-gray-900'}`}>
-                          {msg.product_info?.name || 'Produk'}
-                        </p>
-                        <p className={`text-sm font-bold ${isSender ? 'text-white/90' : (isPurchaseRequest ? 'text-orange-700' : 'text-green-700')}`}>
-                          Rp {Number(msg.product_info?.price || 0).toLocaleString('id-ID')}
-                        </p>
+                    )}
+
+                    {/* Invoice Header */}
+                    {isInvoice && (
+                      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-green-100">
+                        <ShieldCheck className={`w-4 h-4 ${isSender ? 'text-white' : 'text-green-500'}`} />
+                        <span className={`text-xs font-bold uppercase tracking-wider ${isSender ? 'text-white' : 'text-green-600'}`}>
+                          Tagihan Pembayaran
+                        </span>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  <p className="text-[15px] whitespace-pre-line leading-relaxed mb-1">{msg.text}</p>
-                  
-                  {/* Action Buttons for Seller */}
-                  {isPurchaseRequest && !isSender && (
-                    <Button 
-                      onClick={() => {
-                        setSelectedRequest(msg);
-                        setIsInvoiceModalOpen(true);
-                      }}
-                      className="w-full mt-3 h-10 rounded-xl text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-md border-0 animate-pulse"
-                    >
-                      Konfirmasi & Buat Tagihan
-                    </Button>
-                  )}
+                    {/* Product info context */}
 
-                  {/* Action Button for Buyer on Invoice */}
-                  {isInvoice && !isSender && (
-                    <Button 
-                      onClick={onNavigateToOrders}
-                      className="w-full mt-3 h-9 rounded-xl text-xs bg-green-500 hover:bg-green-600 text-white shadow-sm border-0"
-                    >
-                      Bayar Sekarang
-                    </Button>
-                  )}
+                    {(msg.product_info || isPurchaseRequest) && (
+                      <div className={`flex items-center gap-3 p-2 rounded-xl mb-2 ${
+                        isSender ? 'bg-white/20' : (isPurchaseRequest ? 'bg-orange-100/50' : (isInvoice ? 'bg-green-100/50' : 'bg-gray-50'))
+                      }`}>
+                        <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-black/5">
+                          <ImageWithFallback 
+                            src={msg.product_info?.images?.[0] || msg.product_info?.image || ''} 
+                            alt={msg.product_info?.name || 'Produk'} 
+                            className="w-full h-full object-cover" 
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className={`text-xs font-bold truncate ${isSender ? 'text-white' : 'text-gray-900'}`}>
+                            {msg.product_info?.name || 'Produk'}
+                          </p>
+                          <p className={`text-sm font-bold ${isSender ? 'text-white/90' : (isPurchaseRequest ? 'text-orange-700' : 'text-green-700')}`}>
+                            Rp {Number(msg.product_info?.price || 0).toLocaleString('id-ID')}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
-                  <p className={`text-[10px] text-right mt-1 ${isSender ? 'text-white/80' : 'text-gray-400'}`}>
-                    {formatTime(msg.createdAt)}
-                  </p>
+                    <p className="text-[15px] whitespace-pre-line leading-relaxed mb-1">{msg.text}</p>
+                    
+                    {/* Action Buttons for Seller */}
+                    {isPurchaseRequest && !isSender && (
+                      <Button 
+                        onClick={() => {
+                          setSelectedRequest(msg);
+                          setIsInvoiceModalOpen(true);
+                        }}
+                        className="w-full mt-3 h-10 rounded-xl text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-md border-0 animate-pulse"
+                      >
+                        Konfirmasi & Buat Tagihan
+                      </Button>
+                    )}
+
+                    {/* Action Button for Buyer on Invoice */}
+                    {isInvoice && !isSender && (
+                      <Button 
+                        onClick={onNavigateToOrders}
+                        className="w-full mt-3 h-9 rounded-xl text-xs bg-green-500 hover:bg-green-600 text-white shadow-sm border-0"
+                      >
+                        Bayar Sekarang
+                      </Button>
+                    )}
+
+                    <p className={`text-[10px] text-right mt-1 ${isSender ? 'text-white/80' : 'text-gray-400'}`}>
+                      {formatTime(msg.createdAt)}
+                    </p>
+                  </div>
                 </div>
               </div>
             );

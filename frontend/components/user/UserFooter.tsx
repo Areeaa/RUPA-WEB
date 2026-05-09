@@ -16,9 +16,8 @@ export function UserFooter({ isGuest, onNavigate }: UserFooterProps) {
   ];
 
   const infoItems = [
-    { label: 'Donasi', page: 'donation' },
     { label: 'Lisensi', page: 'license' },
-    { label: 'Pengaturan', page: 'settings' },
+    ...(!isGuest ? [{ label: 'Pengaturan', page: 'settings' }] : []),
   ];
 
   const socialLinks = [

@@ -16,6 +16,7 @@ import {
 } from '../ui/select';
 import { getTranslation, type Language } from '../../utils/translations';
 import { productService } from '../../utils/apiServices';
+import { formatRupiahInput, getCurrencyDigits } from '../../utils/currency';
 
 type UploadPageProps = {
   userData: UserData;
@@ -75,7 +76,7 @@ export function UploadPage({ userData }: UploadPageProps) {
       const data = new FormData();
       data.append('name', formData.title);
       data.append('description', formData.description);
-      data.append('price', formData.price);
+      data.append('price', getCurrencyDigits(formData.price));
       data.append('categoryId', formData.category);
       
       imageFiles.forEach(file => {
@@ -217,11 +218,13 @@ export function UploadPage({ userData }: UploadPageProps) {
                         Rp
                       </span>
                       <Input
-                        type="number"
-                        placeholder="150000"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9.]*"
+                        placeholder="150.000"
                         className="pl-12 rounded-xl border-gray-200 h-12 focus:border-green-400 focus:ring-green-400"
                         value={formData.price}
-                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, price: formatRupiahInput(e.target.value) })}
                       />
                     </div>
                   </div>

@@ -55,7 +55,7 @@ type ProductDetailPageProps = {
   onProductClick: (product: Product) => void;
 };
 
-export function ProductDetailPage({ product: initialProduct, onBack, userData, isGuest, onViewCreator, onChatSeller, onProductClick }: ProductDetailPageProps) {
+export function ProductDetailPage({ product: initialProduct, onBack, userData, isGuest, onNavigateToAuth, onViewCreator, onChatSeller, onProductClick }: ProductDetailPageProps) {
   const t = getTranslation((userData.language as Language) || 'id');
   const [product, setProduct] = useState(initialProduct);
   const [isLoading, setIsLoading] = useState(false);
@@ -122,14 +122,24 @@ export function ProductDetailPage({ product: initialProduct, onBack, userData, i
     return typeof p === 'number' ? p : parseInt(String(p)) || 0;
   };
 
-  const handleSendReport = () => {
+  const handleSendReport = async () => {
+    if (isGuest) {
+      toast.error('Silakan login untuk melaporkan produk');
+      onNavigateToAuth?.();
+      return;
+    }
+
     if (!reportCategory || !reportDescription) {
       toast.error('Harap lengkapi kategori dan deskripsi laporan');
       return;
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      await productService.report(product.id, {
+        reason: reportCategory,
+        description: reportDescription,
+      });
       setIsSubmitting(false);
       setIsReportModalOpen(false);
       setReportCategory('');
@@ -137,7 +147,11 @@ export function ProductDetailPage({ product: initialProduct, onBack, userData, i
       toast.success('Laporan berhasil dikirim. Terima kasih atas masukan Anda.', {
         icon: <ShieldAlert className="w-5 h-5 text-red-500" />
       });
-    }, 1500);
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Gagal mengirim laporan produk';
+      toast.error(message);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -333,10 +347,13 @@ export function ProductDetailPage({ product: initialProduct, onBack, userData, i
               <Label className="text-sm font-semibold text-gray-700 ml-1">Kategori Pelanggaran</Label>
               <Select value={reportCategory} onValueChange={setReportCategory}>
                 <SelectTrigger className="w-full h-12 rounded-xl bg-gray-50/50"><SelectValue placeholder="Pilih alasan laporan" /></SelectTrigger>
-                <SelectContent className="rounded-xl shadow-xl">
-                  <SelectItem value="fraud">Penipuan / Barang Palsu</SelectItem>
-                  <SelectItem value="other">Lainnya</SelectItem>
-                </SelectContent>
+                  <SelectContent className="rounded-xl shadow-xl">
+                    <SelectItem value="fraud">Penipuan / Barang Palsu</SelectItem>
+                    <SelectItem value="counterfeit">Produk Tiruan</SelectItem>
+                    <SelectItem value="inappropriate">Konten Tidak Pantas</SelectItem>
+                    <SelectItem value="copyright">Pelanggaran Hak Cipta</SelectItem>
+                    <SelectItem value="other">Lainnya</SelectItem>
+                  </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">

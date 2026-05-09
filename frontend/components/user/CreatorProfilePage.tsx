@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Star, MapPin, Store, MessageCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Store, MessageCircle, Loader2, Heart, Sparkles } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import type { UserData } from '../../types';
 import type { Product } from '../../types';
 import { toast } from 'sonner';
-import { productService } from '../../utils/apiServices';
+import { donationService, productService } from '../../utils/apiServices';
 import { normalizeProduct } from './HomePage';
 
 type CreatorProfilePageProps = {
@@ -22,6 +26,13 @@ type CreatorProfilePageProps = {
 export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, onProductClick, onChatSeller }: CreatorProfilePageProps) {
   const [creatorProducts, setCreatorProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDonateOpen, setIsDonateOpen] = useState(false);
+  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
+  const [customAmount, setCustomAmount] = useState('');
+  const [donationMessage, setDonationMessage] = useState('');
+  const [isSubmittingDonation, setIsSubmittingDonation] = useState(false);
+
+  const presetAmounts = [25000, 50000, 100000, 250000, 500000, 1000000];
 
   useEffect(() => {
     const fetchCreatorProducts = async () => {
@@ -43,7 +54,32 @@ export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, o
     }
   }, [creatorId]);
 
+  const donationAmount = selectedAmount || Number(customAmount || 0);
 
+  const handleDonate = async () => {
+    if (!donationAmount || donationAmount < 1000) {
+      toast.error('Nominal donasi minimal Rp 1.000');
+      return;
+    }
+
+    setIsSubmittingDonation(true);
+    try {
+      await donationService.create({
+        creatorId,
+        amount: donationAmount,
+        message: donationMessage,
+      });
+      toast.success('Donasi berhasil dikirim dan menunggu review admin.');
+      setIsDonateOpen(false);
+      setSelectedAmount(null);
+      setCustomAmount('');
+      setDonationMessage('');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gagal mengirim donasi');
+    } finally {
+      setIsSubmittingDonation(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-12">
@@ -71,6 +107,9 @@ export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, o
               </div>
               <div className="flex gap-3 justify-center">
                 <Button variant="outline" onClick={() => toast.success(`Mengikuti ${creatorName}`)} className="rounded-xl">Ikuti</Button>
+                <Button variant="outline" onClick={() => setIsDonateOpen(true)} className="rounded-xl border-pink-200 text-pink-700 hover:bg-pink-50">
+                  <Heart className="w-4 h-4 mr-2" /> Donasi
+                </Button>
                 {creatorProducts.length > 0 && (
                     <Button onClick={() => onChatSeller(creatorProducts[0])} className="rounded-xl text-white bg-gradient-to-r from-[var(--theme-light)] to-[var(--theme-secondary)]">
                     <MessageCircle className="w-4 h-4 mr-2" /> Chat
@@ -115,6 +154,89 @@ export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, o
           </div>
         )}
       </div>
+
+      <Dialog open={isDonateOpen} onOpenChange={setIsDonateOpen}>
+        <DialogContent className="rounded-2xl sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl text-gray-900">
+              <Heart className="h-5 w-5 text-pink-500" />
+              Donasi untuk {creatorName}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            <div>
+              <Label className="mb-3 block text-gray-700">Pilih Nominal</Label>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {presetAmounts.map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => {
+                      setSelectedAmount(amount);
+                      setCustomAmount('');
+                    }}
+                    className={`rounded-xl border-2 p-3 text-sm transition-all ${
+                      selectedAmount === amount
+                        ? 'border-pink-500 bg-pink-50 text-pink-800'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-pink-200'
+                    }`}
+                  >
+                    Rp {amount.toLocaleString('id-ID')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Nominal Lainnya</Label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">Rp</span>
+                <Input
+                  type="number"
+                  min={1000}
+                  value={customAmount}
+                  onChange={(event) => {
+                    setCustomAmount(event.target.value);
+                    setSelectedAmount(null);
+                  }}
+                  placeholder="Masukkan nominal donasi"
+                  className="rounded-xl pl-12"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Pesan untuk Kreator
+              </Label>
+              <Textarea
+                value={donationMessage}
+                onChange={(event) => setDonationMessage(event.target.value)}
+                placeholder="Tulis pesan dukungan singkat..."
+                className="min-h-[100px] rounded-xl"
+              />
+            </div>
+
+            {donationAmount > 0 && (
+              <div className="rounded-xl border border-pink-100 bg-pink-50 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-pink-700">Total Donasi</span>
+                  <span className="text-xl font-bold text-pink-800">Rp {donationAmount.toLocaleString('id-ID')}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDonateOpen(false)} className="rounded-xl">Batal</Button>
+            <Button onClick={handleDonate} disabled={isSubmittingDonation} className="rounded-xl bg-pink-600 text-white hover:bg-pink-700">
+              {isSubmittingDonation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Heart className="mr-2 h-4 w-4" />}
+              Kirim Donasi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -46,7 +46,7 @@ const createProduct = async (req, res) => {
 const getAllProducts = async (req, res) => {
   try {
     const { search, categoryId, minPrice, maxPrice } = req.query;
-    const where = {};
+    const where = { status: 'active' };
 
     if (search) {
       where.name = { [Op.like]: `%${search}%` };
@@ -86,7 +86,8 @@ const getProductById = async (req, res) => {
   try {
     const productId = req.params.id; 
     
-    const product = await Product.findByPk(productId, {
+    const product = await Product.findOne({
+      where: { id: productId, status: 'active' },
       include: [{
         model: User,
         as: 'creator',
@@ -194,7 +195,7 @@ const getMyProducts = async (req, res) => {
   try {
     const userId = req.user.id;
     const products = await Product.findAll({
-      where: { userId },
+      where: { userId, status: 'active' },
       include: [{
         model: Category,
         as: 'category',
@@ -214,7 +215,7 @@ const getProductsByUser = async (req, res) => {
   try {
     const userId = req.params.userId;
     const products = await Product.findAll({
-      where: { userId },
+      where: { userId, status: 'active' },
       include: [{
         model: Category,
         as: 'category',

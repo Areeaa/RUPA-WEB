@@ -120,16 +120,16 @@ export function AdminCategories() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">ID</TableHead>
+                  <TableHead className="w-16">No</TableHead>
                   <TableHead>Nama Kategori</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {categories.length > 0 ? (
-                  categories.map((cat: any) => (
+                  categories.map((cat: any, index: number) => (
                     <TableRow key={cat.id}>
-                      <TableCell className="font-medium">{cat.id}</TableCell>
+                      <TableCell className="font-medium text-gray-500">{index + 1}</TableCell>
                       <TableCell>
                         {editingId === cat.id ? (
                           <Input 

@@ -13,6 +13,7 @@ type AdminOverviewProps = {
   topCreators: Array<{
     name: string;
     works: number;
+    sales: number;
     revenue: string;
   }>;
 };
@@ -45,7 +46,7 @@ export function AdminOverview({ adminData, systemStats, topCreators }: AdminOver
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center text-green-700">
               <DollarSign className="mr-2 h-4 w-4" />
-              Total Donasi
+              Total Nominal Transaksi
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -71,7 +72,7 @@ export function AdminOverview({ adminData, systemStats, topCreators }: AdminOver
       <Card className="rounded-2xl border-0 shadow-lg">
         <CardHeader>
           <CardTitle className="text-green-800">Kreator Teratas</CardTitle>
-          <CardDescription>Berdasarkan pendapatan yang tercatat di backend</CardDescription>
+          <CardDescription>10 kreator approved teratas berdasarkan penjualan valid</CardDescription>
         </CardHeader>
         <CardContent>
           {topCreators.length > 0 ? (
@@ -80,7 +81,7 @@ export function AdminOverview({ adminData, systemStats, topCreators }: AdminOver
                 <div key={idx} className="flex items-center justify-between rounded-xl bg-gradient-to-r from-green-50 to-orange-50 p-3">
                   <div>
                     <p className="text-gray-900">{creator.name}</p>
-                    <p className="text-sm text-gray-600">{creator.works} karya</p>
+                    <p className="text-sm text-gray-600">{creator.works} karya · {creator.sales} terjual</p>
                   </div>
                   <div className="text-right">
                     <p className="text-green-700">{creator.revenue}</p>

@@ -12,7 +12,7 @@ import { THEME_COLORS } from './data/constants';
 
 export default function App() {
   const location = useLocation();
-  const { authState, isLoading, manualAdminLogin, logout, updateUser } = useAuth();
+  const { authState, isLoading, logout } = useAuth();
   const { isAuthenticated, userType, userData } = authState;
 
   useEffect(() => {

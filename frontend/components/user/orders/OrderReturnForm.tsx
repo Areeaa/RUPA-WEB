@@ -9,6 +9,7 @@ import { ArrowLeft, Upload, FileVideo, Clock, Check, X, AlertCircle, HelpCircle 
 import { toast } from 'sonner';
 import { getTranslation, type Language } from '../../../utils/translations';
 import type { Order, OrderItem, ReturnRecord, UploadedFile } from '../../../types/orders';
+import { returnService } from '../../../utils/apiServices';
 
 const ImageWithFallback = ({ src, alt, className }: { src: string; alt: string; className?: string }) => {
   const [error, setError] = useState(false);
@@ -43,6 +44,10 @@ export function OrderReturnForm({ userData, order: selectedOrderForReturn, item:
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [generatedReturnId, setGeneratedReturnId] = useState('');
   const [submittedReturn, setSubmittedReturn] = useState<ReturnRecord | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const productName = selectedItemForReturn.Product?.name || (selectedItemForReturn as any).productName || 'Produk';
+  const productImage = selectedItemForReturn.Product?.images?.[0] || (selectedItemForReturn as any).productImage || '';
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -87,7 +92,7 @@ export function OrderReturnForm({ userData, order: selectedOrderForReturn, item:
     setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
   };
 
-  const handleSubmitReturn = () => {
+  const handleSubmitReturn = async () => {
     if (!selectedItemForReturn || !returnReason || !customerDescription.trim()) {
       toast.error(t.allFieldsRequired);
       return;
@@ -98,33 +103,56 @@ export function OrderReturnForm({ userData, order: selectedOrderForReturn, item:
       return;
     }
 
-    const returnId = `RET-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-    setGeneratedReturnId(returnId);
-    
-    const newReturn: ReturnRecord = {
-      returnId,
-      orderId: selectedOrderForReturn!.orderId,
-      productName: selectedItemForReturn.productName,
-      productImage: selectedItemForReturn.productImage,
-      returnReason,
-      returnType,
-      returnStatus: 'Pending',
-      requestedDate: new Date().toISOString().split('T')[0],
-      videoEvidence: uploadedFiles.find(f => f.file.type.startsWith('video')) ? 'unboxing-video.mp4' : '',
-      photoEvidence: uploadedFiles.filter(f => f.file.type.startsWith('image')).map((_, i) => `photo${i + 1}.jpg`),
-      adminNotes: 'Menunggu verifikasi dari tim RUPA.',
-      customerName: userData.fullName || userData.username,
-      customerEmail: userData.email,
-      creatorName: 'Kreator Indonesia',
-    };
-    
-    setSubmittedReturn(newReturn);
-    setShowSuccessDialog(true);
-    toast.success(t.returnSubmitted);
-    
-    setTimeout(() => {
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('orderId', String(selectedOrderForReturn.id));
+      formData.append('orderItemId', String(selectedItemForReturn.id));
+      formData.append('reason', returnReason);
+      formData.append('returnType', returnType);
+      formData.append('quantity', String(returnQuantity));
+      formData.append('description', customerDescription);
+      formData.append('additionalNotes', additionalNotes);
+
+      uploadedFiles.forEach((uploadedFile) => {
+        if (uploadedFile.file.type.startsWith('video')) {
+          formData.append('video', uploadedFile.file);
+        } else {
+          formData.append('photos', uploadedFile.file);
+        }
+      });
+
+      const res = await returnService.create(formData);
+      const ret = res.data.returnRequest;
+      const returnId = ret.return_code || `RET-${ret.id}`;
+      setGeneratedReturnId(returnId);
+      
+      const newReturn: ReturnRecord = {
+        returnId,
+        orderId: String(ret.orderId),
+        productName: ret.product?.name || productName,
+        productImage: ret.product?.images?.[0] || productImage,
+        returnReason: ret.reason,
+        returnType: ret.return_type,
+        returnStatus: 'Pending',
+        requestedDate: new Date(ret.createdAt).toISOString().split('T')[0],
+        videoEvidence: ret.video_evidence || '',
+        photoEvidence: ret.photo_evidence || [],
+        adminNotes: 'Menunggu verifikasi dari tim RUPA.',
+        customerName: userData.fullName || userData.username || userData.name,
+        customerEmail: userData.email,
+        creatorName: ret.seller?.name || 'Kreator Indonesia',
+      };
+      
+      setSubmittedReturn(newReturn);
+      setShowSuccessDialog(true);
+      toast.success(t.returnSubmitted);
       onSuccess(newReturn);
-    }, 2000);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gagal mengirim pengajuan retur');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isReturnFormValid = () => {
@@ -160,7 +188,7 @@ export function OrderReturnForm({ userData, order: selectedOrderForReturn, item:
             >
               <CardTitle className="text-white">{t.submitNewReturn}</CardTitle>
               <CardDescription className="text-white/90">
-                {t.orderId}: {selectedOrderForReturn.orderId}
+                {t.orderId}: {selectedOrderForReturn.id}
               </CardDescription>
             </CardHeader>
 
@@ -171,13 +199,13 @@ export function OrderReturnForm({ userData, order: selectedOrderForReturn, item:
                 <div className="flex gap-4 items-start">
                   <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
                     <ImageWithFallback
-                      src={selectedItemForReturn.productImage}
-                      alt={selectedItemForReturn.productName}
+                      src={productImage}
+                      alt={productName}
                       className="w-full h-full object-cover"
                     />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-gray-800 mb-1">{selectedItemForReturn.productName}</h3>
+                    <h3 className="text-gray-800 mb-1">{productName}</h3>
                     <p className="text-sm text-gray-600">
                       Rp {selectedItemForReturn.price.toLocaleString('id-ID')} × {selectedItemForReturn.quantity}
                     </p>
@@ -327,17 +355,17 @@ export function OrderReturnForm({ userData, order: selectedOrderForReturn, item:
                 <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">{t.orderId}:</span>
-                    <span className="text-gray-800">{selectedOrderForReturn.orderId}</span>
+                    <span className="text-gray-800">{selectedOrderForReturn.id}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">{t.orderDate}:</span>
                     <span className="text-gray-800">
-                      {new Date(selectedOrderForReturn.orderDate).toLocaleDateString('id-ID')}
+                      {new Date(selectedOrderForReturn.createdAt).toLocaleDateString('id-ID')}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">{t.paymentMethod}:</span>
-                    <span className="text-gray-800">{selectedOrderForReturn.paymentMethod}</span>
+                    <span className="text-gray-600">Status:</span>
+                    <span className="text-gray-800">{selectedOrderForReturn.status}</span>
                   </div>
                 </div>
               </div>
@@ -408,12 +436,12 @@ export function OrderReturnForm({ userData, order: selectedOrderForReturn, item:
               {/* Submit Button */}
               <Button
                 onClick={handleSubmitReturn}
-                disabled={!isReturnFormValid()}
+                disabled={!isReturnFormValid() || isSubmitting}
                 className={`w-full rounded-xl text-white py-6 ${isReturnFormValid() ? "bg-[var(--theme-primary)] cursor-pointer" : "bg-gray-300 cursor-not-allowed"}`}
                 size="lg"
               >
                 <Upload className="w-5 h-5 mr-2" />
-                {t.submitReturn}
+                {isSubmitting ? 'Mengirim...' : t.submitReturn}
               </Button>
 
               {!isReturnFormValid() && (

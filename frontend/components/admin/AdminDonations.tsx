@@ -7,7 +7,7 @@ import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
-import { Heart, Loader2, CheckCircle2, XCircle, Send, Eye } from 'lucide-react';
+import { Heart, Loader2, CheckCircle2, XCircle, Send, Eye, ImageIcon, ExternalLink } from 'lucide-react';
 import { adminService } from '../../utils/apiServices';
 import { toast } from 'sonner';
 
@@ -20,6 +20,8 @@ type Donation = {
   createdAt: string;
   reviewedAt?: string | null;
   distributedAt?: string | null;
+  payment_proof?: string | null;
+  payment_proof_at?: string | null;
   donor?: { id: number; name: string; email: string };
   creator?: { id: number; name: string; email: string };
   reviewer?: { id: number; name: string; email: string };
@@ -46,6 +48,7 @@ export function AdminDonations() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState<Donation | null>(null);
   const [adminNote, setAdminNote] = useState('');
+  const [showProofDialog, setShowProofDialog] = useState(false);
 
   const filteredDonations = useMemo(() => {
     if (statusFilter === 'all') return donations;
@@ -168,6 +171,7 @@ export function AdminDonations() {
                   <TableHead>Nominal</TableHead>
                   <TableHead>Tanggal</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Bukti</TableHead>
                   <TableHead>Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -188,6 +192,15 @@ export function AdminDonations() {
                     <TableCell>{formatDate(donation.createdAt)}</TableCell>
                     <TableCell>
                       <Badge className={statusClasses[donation.status]}>{statusLabels[donation.status]}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {donation.payment_proof ? (
+                        <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                          <ImageIcon className="w-3 h-3" /> Ada
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Button size="sm" variant="outline" className="rounded-lg" onClick={() => openDonation(donation)}>
@@ -237,6 +250,48 @@ export function AdminDonations() {
                   </p>
                 </div>
 
+                {/* Bukti Transfer */}
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4" /> Bukti Transfer
+                  </p>
+                  {selectedDonation.payment_proof ? (
+                    <div className="space-y-2">
+                      <div
+                        className="relative rounded-xl border overflow-hidden bg-gray-50 cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setShowProofDialog(true)}
+                      >
+                        <img
+                          src={selectedDonation.payment_proof}
+                          alt="Bukti Transfer"
+                          className="w-full max-h-64 object-contain"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/20 transition-opacity">
+                          <span className="bg-white text-gray-800 text-xs px-3 py-1.5 rounded-full flex items-center gap-1">
+                            <Eye className="w-3 h-3" /> Lihat Penuh
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>Diunggah: {formatDate(selectedDonation.payment_proof_at)}</span>
+                        <a
+                          href={selectedDonation.payment_proof}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-blue-600 hover:underline"
+                        >
+                          <ExternalLink className="w-3 h-3" /> Buka di tab baru
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-gray-400">
+                      <ImageIcon className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm">Donatur belum mengunggah bukti transfer</p>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label>Catatan admin</Label>
                   <Textarea
@@ -282,6 +337,28 @@ export function AdminDonations() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Fullscreen Proof Preview */}
+      {showProofDialog && selectedDonation?.payment_proof && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => setShowProofDialog(false)}
+        >
+          <div className="relative max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowProofDialog(false)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 text-2xl font-bold"
+            >
+              &times;
+            </button>
+            <img
+              src={selectedDonation.payment_proof}
+              alt="Bukti Transfer"
+              className="w-full rounded-2xl shadow-2xl object-contain max-h-[80vh]"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

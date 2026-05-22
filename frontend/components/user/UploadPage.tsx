@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -33,6 +33,20 @@ export function UploadPage({ userData }: UploadPageProps) {
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await productService.getCategories();
+        setCategories((res.data || []).map((category: any) => typeof category === 'string' ? { id: 0, name: category } : category));
+      } catch (error) {
+        toast.error('Gagal memuat kategori');
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -240,14 +254,11 @@ export function UploadPage({ userData }: UploadPageProps) {
                         <SelectValue placeholder="Pilih kategori" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl">
-                        <SelectItem value="daur-ulang">Daur Ulang</SelectItem>
-                        <SelectItem value="energi">Energi Terbarukan</SelectItem>
-                        <SelectItem value="kerajinan">Kerajinan Tangan</SelectItem>
-                        <SelectItem value="organik">Produk Organik</SelectItem>
-                        <SelectItem value="pertanian">Teknologi Pertanian</SelectItem>
-                        <SelectItem value="fashion">Fashion Berkelanjutan</SelectItem>
-                        <SelectItem value="teknologi">Teknologi Ramah Lingkungan</SelectItem>
-                        <SelectItem value="lainnya">Lainnya</SelectItem>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id || category.name} value={String(category.id || category.name)}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

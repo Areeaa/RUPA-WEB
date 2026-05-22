@@ -18,7 +18,6 @@ type AuthContextType = {
   signUp: (userData: { name: string; email: string; password: string }) => Promise<void>;
   logout: () => void;
   updateUser: (newData: Partial<UserData> | FormData) => Promise<void>;
-  manualAdminLogin: (userData: UserData) => void;
   adminLogin: (credentials: { email: string; password: string }) => Promise<void>;
   isLoading: boolean;
 };
@@ -45,6 +44,11 @@ function normalizeUser(user: any): UserData {
     gender: user.gender || '',
     age: user.age || '',
     hasSeenTutorial: user.hasSeenTutorial !== undefined ? user.hasSeenTutorial : true,
+    // Payment info
+    bank_name: user.bank_name || '',
+    bank_account_number: user.bank_account_number || '',
+    bank_account_holder: user.bank_account_holder || '',
+    qris_image: user.qris_image || '',
   };
 }
 
@@ -201,18 +205,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const manualAdminLogin = (userData: UserData) => {
-    setAuthState({
-      isAuthenticated: true,
-      userType: 'admin',
-      userData,
-    });
-    localStorage.setItem('token', 'mock-admin-token');
-    toast.success('Login Admin Berhasil (Mode Manual)');
-  };
-
   return (
-    <AuthContext.Provider value={{ authState, login, googleLogin, logout, updateUser, signUp, manualAdminLogin, adminLogin, isLoading }}>
+    <AuthContext.Provider value={{ authState, login, googleLogin, logout, updateUser, signUp, adminLogin, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

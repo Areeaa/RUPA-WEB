@@ -7,7 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import type { UserData } from '../../types';
 import {
   Settings, Mail, User, Lock, Globe, Shield, LogOut, AlertTriangle,
-  FileText, Upload, Phone, MapPin, Calendar, Palette, Camera
+  FileText, Upload, Phone, MapPin, Calendar, Palette, Camera,
+  Banknote, QrCode, Copy, Eye, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '../ui/checkbox';
@@ -21,7 +22,7 @@ import { THEME_COLORS } from '../../data/constants';
 
 type SettingsPageProps = {
   userData: UserData;
-  updateUserData: (data: Partial<UserData>) => void;
+  updateUserData: (data: Partial<UserData>) => Promise<void>;
   onLogout: () => void;
 };
 
@@ -49,6 +50,18 @@ export function SettingsPage({ userData, updateUserData, onLogout }: SettingsPag
   });
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
   const profileInputRef = useRef<HTMLInputElement>(null);
+
+  // Payment Info States
+  const [isEditingPayment, setIsEditingPayment] = useState(false);
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [paymentData, setPaymentData] = useState({
+    bank_name: userData.bank_name || '',
+    bank_account_number: userData.bank_account_number || '',
+    bank_account_holder: userData.bank_account_holder || '',
+  });
+  const [qrisPreview, setQrisPreview] = useState(userData.qris_image || '');
+  const [showQrisPreview, setShowQrisPreview] = useState(false);
+  const qrisInputRef = useRef<HTMLInputElement>(null);
 
   // Report States
   const [reportTitle, setReportTitle] = useState('');
@@ -82,8 +95,7 @@ export function SettingsPage({ userData, updateUserData, onLogout }: SettingsPag
   // --- HANDLERS ---
   const handleSaveProfile = async () => {
     try {
-      await authService.updateProfile({ name: formData.fullName });
-      updateUserData({ ...formData, name: formData.fullName });
+      await updateUserData({ ...formData, name: formData.fullName });
       setIsEditingProfile(false);
       toast.success(t.profileUpdated || 'Profil berhasil diperbarui!');
     } catch (error) {
@@ -102,6 +114,47 @@ export function SettingsPage({ userData, updateUserData, onLogout }: SettingsPag
         updateUserData({ profilePicture: u.profile_picture, profile_picture: u.profile_picture });
         toast.success(t.profilePhotoUpdated || 'Foto profil diperbarui!');
       }).catch(() => toast.error('Gagal mengupload foto'));
+    }
+  };
+
+  // --- PAYMENT HANDLERS ---
+  const handleSavePayment = async () => {
+    setIsSavingPayment(true);
+    try {
+      await updateUserData({
+        bank_name: paymentData.bank_name,
+        bank_account_number: paymentData.bank_account_number,
+        bank_account_holder: paymentData.bank_account_holder,
+      });
+      setIsEditingPayment(false);
+      toast.success('Informasi pembayaran berhasil disimpan! 💳');
+    } catch (error) {
+      toast.error('Gagal menyimpan informasi pembayaran');
+    } finally {
+      setIsSavingPayment(false);
+    }
+  };
+
+  const handleQrisUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { toast.error('File QRIS maksimal 5MB'); return; }
+      const fd = new FormData();
+      fd.append('qris_image', file);
+      setIsSavingPayment(true);
+      authService.updateProfile(fd).then(res => {
+        const u = res.data.user || res.data;
+        updateUserData({ qris_image: u.qris_image });
+        setQrisPreview(u.qris_image);
+        toast.success('Gambar QRIS berhasil diupload! 📱');
+      }).catch(() => toast.error('Gagal mengupload gambar QRIS')).finally(() => setIsSavingPayment(false));
+    }
+  };
+
+  const handleCopyAccount = () => {
+    if (paymentData.bank_account_number) {
+      navigator.clipboard.writeText(paymentData.bank_account_number);
+      toast.success('Nomor rekening disalin!');
     }
   };
 
@@ -174,7 +227,19 @@ export function SettingsPage({ userData, updateUserData, onLogout }: SettingsPag
                         <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-gray-500">atau URL</span></div>
                         <div className="flex gap-2">
                           <Input placeholder="https://example.com/avatar.jpg" value={profilePhotoUrl} onChange={(e) => setProfilePhotoUrl(e.target.value)} className="rounded-xl" />
-                          <Button onClick={() => { updateUserData({ profilePicture: profilePhotoUrl }); toast.success('Foto diperbarui'); }} className="rounded-xl">Gunakan</Button>
+                          <Button
+                            onClick={async () => {
+                              if (!profilePhotoUrl.trim()) {
+                                toast.error('URL foto wajib diisi');
+                                return;
+                              }
+                              await updateUserData({ profile_picture: profilePhotoUrl.trim(), profilePicture: profilePhotoUrl.trim() });
+                              setProfilePhotoUrl('');
+                            }}
+                            className="rounded-xl"
+                          >
+                            Gunakan
+                          </Button>
                         </div>
                       </div>
                     </DialogContent>
@@ -254,6 +319,165 @@ export function SettingsPage({ userData, updateUserData, onLogout }: SettingsPag
               </div>
             </CardContent>
           </Card>
+
+          {/* INFORMASI PEMBAYARAN (Kreator Only) */}
+          {userData.creator_status === 'approved' && (
+            <Card className="rounded-2xl shadow-lg border-0">
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="text-green-800 flex items-center gap-2">
+                  <Banknote className="w-5 h-5" /> Informasi Pembayaran
+                </CardTitle>
+                <Button
+                  onClick={() => isEditingPayment ? handleSavePayment() : setIsEditingPayment(true)}
+                  size="sm"
+                  disabled={isSavingPayment}
+                  className="w-full rounded-xl text-white sm:w-auto"
+                  style={{ backgroundImage: `linear-gradient(to right, ${currentThemeData.light}, ${currentThemeData.secondary})` }}
+                >
+                  {isSavingPayment ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {isEditingPayment ? (isSavingPayment ? 'Menyimpan...' : t.save) : 'Edit Pembayaran'}
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <p className="text-sm text-gray-500 -mt-2">
+                  Informasi ini akan ditampilkan kepada pembeli saat menerima tagihan dan kepada donatur saat berdonasi ke akun Anda.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-gray-700 flex items-center gap-2">
+                      <Banknote className="w-4 h-4" /> Nama Bank
+                    </Label>
+                    <Select
+                      disabled={!isEditingPayment}
+                      value={paymentData.bank_name}
+                      onValueChange={(value) => setPaymentData({ ...paymentData, bank_name: value })}
+                    >
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder="Pilih Bank" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BCA">BCA</SelectItem>
+                        <SelectItem value="BNI">BNI</SelectItem>
+                        <SelectItem value="BRI">BRI</SelectItem>
+                        <SelectItem value="Mandiri">Mandiri</SelectItem>
+                        <SelectItem value="BSI">BSI</SelectItem>
+                        <SelectItem value="CIMB Niaga">CIMB Niaga</SelectItem>
+                        <SelectItem value="Danamon">Danamon</SelectItem>
+                        <SelectItem value="Permata">Permata</SelectItem>
+                        <SelectItem value="OCBC">OCBC NISP</SelectItem>
+                        <SelectItem value="Jago">Bank Jago</SelectItem>
+                        <SelectItem value="SeaBank">SeaBank</SelectItem>
+                        <SelectItem value="Lainnya">Lainnya</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-gray-700">Nomor Rekening</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={paymentData.bank_account_number}
+                        onChange={(e) => setPaymentData({ ...paymentData, bank_account_number: e.target.value })}
+                        disabled={!isEditingPayment}
+                        placeholder="Contoh: 1234567890"
+                        className="rounded-xl"
+                      />
+                      {paymentData.bank_account_number && !isEditingPayment && (
+                        <Button type="button" variant="outline" size="icon" onClick={handleCopyAccount} className="rounded-xl flex-shrink-0" title="Salin">
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="text-gray-700">Nama Pemilik Rekening</Label>
+                    <Input
+                      value={paymentData.bank_account_holder}
+                      onChange={(e) => setPaymentData({ ...paymentData, bank_account_holder: e.target.value })}
+                      disabled={!isEditingPayment}
+                      placeholder="Contoh: JOHN DOE"
+                      className="rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                {/* QRIS Section */}
+                <div className="border-t border-gray-100 pt-5">
+                  <Label className="text-gray-700 flex items-center gap-2 mb-3">
+                    <QrCode className="w-4 h-4" /> Gambar QRIS (Opsional)
+                  </Label>
+                  <div className="flex flex-col sm:flex-row gap-4 items-start">
+                    {qrisPreview ? (
+                      <div className="relative group">
+                        <div
+                          className="w-32 h-32 rounded-xl border-2 border-dashed border-gray-200 overflow-hidden bg-white cursor-pointer hover:border-green-400 transition-colors"
+                          onClick={() => setShowQrisPreview(true)}
+                        >
+                          <img src={qrisPreview} alt="QRIS" className="w-full h-full object-contain" />
+                        </div>
+                        <button
+                          onClick={() => setShowQrisPreview(true)}
+                          className="absolute bottom-1 right-1 bg-black/50 text-white rounded-full p-1"
+                          title="Lihat"
+                        >
+                          <Eye className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-32 h-32 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+                        <QrCode className="w-8 h-8 mb-1" />
+                        <span className="text-xs">Belum ada</span>
+                      </div>
+                    )}
+                    <div className="space-y-2 flex-1">
+                      <input ref={qrisInputRef} type="file" accept="image/*" onChange={handleQrisUpload} className="hidden" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => qrisInputRef.current?.click()}
+                        disabled={isSavingPayment}
+                        className="rounded-xl w-full sm:w-auto"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {qrisPreview ? 'Ganti Gambar QRIS' : 'Upload Gambar QRIS'}
+                      </Button>
+                      <p className="text-xs text-gray-400">Format: JPG, PNG, WebP. Maks 5MB.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary preview */}
+                {(paymentData.bank_name || paymentData.bank_account_number) && !isEditingPayment && (
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
+                    <p className="text-xs text-green-600 font-semibold mb-2">Preview yang dilihat pembeli:</p>
+                    <div className="flex items-center gap-3">
+                      <Banknote className="w-5 h-5 text-green-700" />
+                      <div>
+                        <p className="font-bold text-green-900">{paymentData.bank_name} - {paymentData.bank_account_number}</p>
+                        <p className="text-sm text-green-700">a.n. {paymentData.bank_account_holder}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* QRIS Preview Dialog */}
+          <Dialog open={showQrisPreview} onOpenChange={setShowQrisPreview}>
+            <DialogContent className="rounded-2xl max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2"><QrCode className="w-5 h-5" /> QRIS Pembayaran</DialogTitle>
+              </DialogHeader>
+              {qrisPreview && (
+                <div className="flex justify-center p-4">
+                  <img src={qrisPreview} alt="QRIS" className="max-w-full max-h-[400px] object-contain rounded-xl" />
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
 
           {/* AKUN & KEAMANAN */}
           <Card className="rounded-2xl shadow-lg border-0">

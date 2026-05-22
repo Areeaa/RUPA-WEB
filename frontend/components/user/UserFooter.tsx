@@ -1,4 +1,4 @@
-import { Sparkles, Globe, Share2, PlayCircle, Mail, MapPin, Heart } from 'lucide-react';
+import { Globe, Share2, PlayCircle, Mail, MapPin, Heart } from 'lucide-react';
 
 type UserFooterProps = {
   isGuest?: boolean;
@@ -46,7 +46,7 @@ export function UserFooter({ isGuest, onNavigate }: UserFooterProps) {
                 className="flex h-11 w-11 items-center justify-center rounded-2xl"
                 style={{ backgroundColor: 'var(--theme-primary, #4caf50)', opacity: 0.9 }}
               >
-                <Sparkles className="h-5 w-5 text-white" />
+                <img src="/ic_rupa.svg" alt="Logo RUPA" className="h-6 w-6 object-contain" />
               </div>
               <div>
                 <p className="text-xl font-bold tracking-tight text-gray-900">RUPA</p>
@@ -153,7 +153,7 @@ export function UserFooter({ isGuest, onNavigate }: UserFooterProps) {
               ))}
               <li>
                 <a
-                  href="mailto:hello@rupa.id"
+                  href="mailto:terasrupa471@gmail.com"
                   className="flex items-center gap-1.5 text-sm text-gray-500 transition-colors"
                   onMouseEnter={(e) => {
                     (e.currentTarget as HTMLAnchorElement).style.color =
@@ -164,7 +164,7 @@ export function UserFooter({ isGuest, onNavigate }: UserFooterProps) {
                   }}
                 >
                   <Mail className="h-3.5 w-3.5" />
-                  hello@rupa.id
+                  terasrupa471@gmail.com
                 </a>
               </li>
               <li>

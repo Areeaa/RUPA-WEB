@@ -4,10 +4,11 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import type { UserData, Product, ChatMessage } from '../../types';
-import { chatService, orderService } from '../../utils/apiServices';
+import { chatService, orderService, authService } from '../../utils/apiServices';
 import { toast } from 'sonner';
 import { io, Socket } from 'socket.io-client';
 import { Card, CardContent } from '../ui/card';
+import { Banknote, QrCode, Copy } from 'lucide-react';
 
 const SOCKET_URL = 'http://localhost:5000';
 
@@ -25,12 +26,15 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
-  const [isSeller, setIsSeller] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [shippingCost, setShippingCost] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
+  const [buyerAddress, setBuyerAddress] = useState('');
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
+  const [sellerPaymentInfo, setSellerPaymentInfo] = useState<any>(null);
+  const [showQrisInvoice, setShowQrisInvoice] = useState(false);
+  const [invoiceQuantity, setInvoiceQuantity] = useState('1');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -57,32 +61,14 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
       try {
         const res = await chatService.getMessages(conversationId);
         const data = res.data;
-        // Backend returns { conversation, messages }
         const msgs = data.messages || data || [];
         setMessages(msgs);
 
-        // Determine if user is seller
-        try {
-          const chatRes = await chatService.getMyConversations();
-          const currentChat = chatRes.data.find((c: any) => c.id === Number(conversationId));
-          if (currentChat) {
-            // In myConversations, partnerId is the other person.
-            // But we need to know if WE are the sellerId in the Conversation model.
-            // Let's use getMessages response if it includes conversation metadata.
-            // For now, let's check if the first product's owner is us (not reliable).
-            // Better: use a dedicated conversation detail API if available.
-            // Simplified: if currentChat exists, we can compare with userData.
-          }
-          
-          // Let's check from the message history if we are receiving messages from a buyer
-          // or if we have a way to know our role.
-          // Check if we are the seller of this product
-          if (product && product.userId === userData.id) {
-             setIsSeller(true);
-          }
-        } catch (e) {
-          console.error("Error determining role:", e);
+        // Simpan alamat pembeli dari response untuk auto-fill invoice
+        if (data.buyer?.address) {
+          setBuyerAddress(data.buyer.address);
         }
+
       } catch (error) {
         console.error('Failed to fetch messages:', error);
         toast.error('Gagal memuat pesan');
@@ -95,7 +81,10 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
 
     // Connect to Socket.IO
     const socket = io(SOCKET_URL, { 
-      transports: ['websocket', 'polling'] 
+      transports: ['websocket', 'polling'],
+      auth: {
+        token: localStorage.getItem('token'),
+      },
     });
     socketRef.current = socket;
 
@@ -122,11 +111,25 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
       toast.error(err.message || 'Gagal mengirim pesan');
     });
 
+    socket.on('connect_error', (err: any) => {
+      toast.error(err.message || 'Gagal terhubung ke chat realtime');
+    });
+
     return () => {
       socket.emit('leave_room', conversationId);
       socket.disconnect();
     };
   }, [conversationId, userData.id, product]);
+
+  const parseProductPrice = (value: string | number | undefined) => {
+    if (typeof value === 'number') return value;
+    return Number(String(value || '').replace(/[^\d]/g, '') || 0);
+  };
+
+  const parsedInvoiceQuantity = Math.max(Number(invoiceQuantity) || 1, 1);
+  const invoiceUnitPrice = parseProductPrice(selectedRequest?.product_info?.price);
+  const invoiceSubtotal = invoiceUnitPrice * parsedInvoiceQuantity;
+  const invoiceTotal = invoiceSubtotal + (Number(shippingCost) || 0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -194,27 +197,78 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
     e.preventDefault();
     if (!conversationId || !selectedRequest) return;
 
+    const invoiceProductId = Number(selectedRequest?.productId || selectedRequest?.product_info?.id);
+    const quantity = Math.max(Number(invoiceQuantity) || 1, 1);
+
+    if (!invoiceProductId) {
+      toast.error('Produk pada permintaan beli tidak valid');
+      return;
+    }
+
     setIsCreatingInvoice(true);
     try {
+      // Fetch seller payment info
+      let paymentInfo: any = null;
+      try {
+        const paymentRes = await authService.getPaymentInfo(userData.id!);
+        paymentInfo = paymentRes.data;
+      } catch (e) {
+        console.warn('No payment info found');
+      }
+
       const res = await orderService.createInvoice({
         conversationId: Number(conversationId),
-        productId: selectedRequest?.productId,
+        productId: invoiceProductId,
+        quantity,
         shipping_cost: Number(shippingCost) || 0,
         shipping_address: shippingAddress
       });
 
       const newOrder = res.data.order;
-      const totalBayar = Number(selectedRequest?.product_info?.price || 0) + (Number(shippingCost) || 0);
+      const orderItems = newOrder?.items || [];
+      const itemLines = orderItems.length > 0
+        ? orderItems.map((item: any) => {
+          const name = item.Product?.name || 'Produk';
+          const price = Number(item.price || 0);
+          const quantity = Number(item.quantity || 1);
+          return `- ${name}: Rp${price.toLocaleString('id-ID')} x ${quantity} = Rp${(price * quantity).toLocaleString('id-ID')}`;
+        }).join('\n')
+        : `- ${selectedRequest?.product_info?.name || 'Produk'}: Rp${invoiceUnitPrice.toLocaleString('id-ID')} x ${quantity} = Rp${(invoiceUnitPrice * quantity).toLocaleString('id-ID')}`;
+      const totalBayar = Number(newOrder?.total_price || invoiceSubtotal) + Number(newOrder?.shipping_cost || shippingCost || 0);
 
-      // Send a detailed invoice message via socket
+      let paymentText = '';
+      if (paymentInfo?.bank_name && paymentInfo?.bank_account_number) {
+        paymentText = `\n\nINFO TRANSFER:\nBank: ${paymentInfo.bank_name}\nNo. Rek: ${paymentInfo.bank_account_number}\na.n. ${paymentInfo.bank_account_holder || '-'}`;
+        if (paymentInfo.qris_image) {
+          paymentText += `\n\nQRIS tersedia di detail tagihan`;
+        }
+      }
+
       if (socketRef.current) {
         socketRef.current.emit('send_message', {
           conversationId,
           senderId: userData.id,
           senderName: userData.name || userData.username,
-          text: `📦 TAGIHAN PESANAN #${newOrder.id}\n---\nProduk: ${selectedRequest?.product_info?.name} (Rp${selectedRequest?.product_info?.price})\nOngkir: Rp${shippingCost || 0}\nAlamat: ${shippingAddress || '-'}\n---\nTOTAL BAYAR: Rp${totalBayar}\nSilakan transfer dan upload bukti pembayaran di sini.`,
+          text: `TAGIHAN PESANAN #${newOrder.id}\n---\nBarang:\n${itemLines}\nOngkir: Rp${Number(newOrder?.shipping_cost || shippingCost || 0).toLocaleString('id-ID')}\nAlamat: ${shippingAddress || '-'}\n---\nTOTAL BAYAR: Rp${totalBayar.toLocaleString('id-ID')}\nSilakan transfer dan upload bukti pembayaran di halaman Pesanan.${paymentText}`,
           type: 'invoice',
-          productId: selectedRequest?.productId
+          productId: invoiceProductId,
+          invoice_items: orderItems.length > 0 ? orderItems.map((item: any) => ({
+            productId: item.productId,
+            name: item.Product?.name || 'Produk',
+            quantity: Number(item.quantity || 1),
+            price: Number(item.price || 0),
+          })) : [{
+            productId: invoiceProductId,
+            name: selectedRequest?.product_info?.name || 'Produk',
+            quantity,
+            price: invoiceUnitPrice,
+          }],
+          payment_info: paymentInfo ? {
+            bank_name: paymentInfo.bank_name,
+            bank_account_number: paymentInfo.bank_account_number,
+            bank_account_holder: paymentInfo.bank_account_holder,
+            qris_image: paymentInfo.qris_image,
+          } : null,
         });
       }
 
@@ -222,6 +276,7 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
       setIsInvoiceModalOpen(false);
       setShippingCost('');
       setShippingAddress('');
+      setInvoiceQuantity('1');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Gagal membuat tagihan');
     } finally {
@@ -307,7 +362,7 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
         <div className="bg-white p-3 shadow-sm border-b border-gray-100 z-10 sticky top-[68px]">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-100">
-              <ImageWithFallback src={product.image || ''} alt={product.name} className="w-full h-full object-cover" />
+              <ImageWithFallback src={product.image || ''} alt={product.name} preset="thumbnail" className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-bold text-gray-800 truncate mb-1">{product.name}</h3>
@@ -424,6 +479,9 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
                       <Button 
                         onClick={() => {
                           setSelectedRequest(msg);
+                          setInvoiceQuantity('1');
+                          // Auto-fill alamat pengiriman dari profil pembeli
+                          setShippingAddress(buyerAddress || '');
                           setIsInvoiceModalOpen(true);
                         }}
                         className="w-full mt-3 h-10 rounded-xl text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-md border-0 animate-pulse"
@@ -434,12 +492,49 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
 
                     {/* Action Button for Buyer on Invoice */}
                     {isInvoice && !isSender && (
-                      <Button 
-                        onClick={onNavigateToOrders}
-                        className="w-full mt-3 h-9 rounded-xl text-xs bg-green-500 hover:bg-green-600 text-white shadow-sm border-0"
-                      >
-                        Bayar Sekarang
-                      </Button>
+                      <div className="space-y-2 mt-3">
+                        {/* Show payment info if available */}
+                        {msg.payment_info?.bank_name && (
+                          <div className="bg-white/90 rounded-xl p-3 space-y-2">
+                            <div className="flex items-center gap-2 text-green-800">
+                              <Banknote className="w-4 h-4" />
+                              <span className="text-xs font-bold uppercase tracking-wider">Info Transfer</span>
+                            </div>
+                            <div className="text-sm text-green-900">
+                              <p className="font-bold">{msg.payment_info.bank_name} - {msg.payment_info.bank_account_number}</p>
+                              <p className="text-xs">a.n. {msg.payment_info.bank_account_holder}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(msg.payment_info?.bank_account_number || '');
+                                  toast.success('Nomor rekening disalin!');
+                                }}
+                                className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg hover:bg-green-200 transition-colors"
+                              >
+                                <Copy className="w-3 h-3" /> Salin No. Rek
+                              </button>
+                              {msg.payment_info.qris_image && (
+                                <button
+                                  onClick={() => {
+                                    setSellerPaymentInfo(msg.payment_info);
+                                    setShowQrisInvoice(true);
+                                  }}
+                                  className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg hover:bg-green-200 transition-colors"
+                                >
+                                  <QrCode className="w-3 h-3" /> Lihat QRIS
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        <Button 
+                          onClick={onNavigateToOrders}
+                          className="w-full h-9 rounded-xl text-xs bg-green-500 hover:bg-green-600 text-white shadow-sm border-0"
+                        >
+                          Bayar Sekarang
+                        </Button>
+                      </div>
                     )}
 
                     <p className={`text-[10px] text-right mt-1 ${isSender ? 'text-white/80' : 'text-gray-400'}`}>
@@ -487,22 +582,48 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
       {/* MODAL BUAT TAGIHAN (SELLER ONLY) */}
       {isInvoiceModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <Card className="w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <Card className="w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 text-white">
               <h3 className="text-xl font-bold flex items-center gap-2">
                 <ShieldCheck className="w-6 h-6" /> Buat Tagihan
               </h3>
-              <p className="text-green-50/80 text-sm mt-1">Lengkapi biaya pengiriman untuk produk ini</p>
+              <p className="text-green-50/80 text-sm mt-1">Atur jumlah barang dan biaya pengiriman</p>
             </div>
-            <CardContent className="p-6">
+            <CardContent className="p-6 max-h-[80vh] overflow-y-auto">
               <form onSubmit={handleCreateInvoice} className="space-y-4">
-                <div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-white shadow-sm">
-                    <img src={selectedRequest?.product_info?.images?.[0] || selectedRequest?.product_info?.image} alt="" className="w-full h-full object-cover" />
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-white shadow-sm flex-shrink-0">
+                      <img
+                        src={selectedRequest?.product_info?.images?.[0] || selectedRequest?.product_info?.image || ''}
+                        alt={selectedRequest?.product_info?.name || 'Produk'}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-gray-800 truncate">{selectedRequest?.product_info?.name || 'Produk'}</p>
+                      <p className="text-xs text-green-600 font-bold">Rp {invoiceUnitPrice.toLocaleString('id-ID')}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-800">{selectedRequest?.product_info?.name}</p>
-                    <p className="text-xs text-green-600 font-bold">Rp {Number(selectedRequest?.product_info?.price || 0).toLocaleString('id-ID')}</p>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-[120px_1fr] sm:items-end">
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-gray-700">Jumlah</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={invoiceQuantity}
+                        onChange={(event) => setInvoiceQuantity(String(Math.max(Number(event.target.value) || 1, 1)))}
+                        className="rounded-xl bg-white"
+                        required
+                      />
+                    </div>
+                    <div className="rounded-xl bg-white p-3 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-gray-500">Subtotal barang</span>
+                        <span className="font-bold text-green-700">Rp {invoiceSubtotal.toLocaleString('id-ID')}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -519,20 +640,41 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">Alamat Pengiriman (Opsional)</label>
+                  <label className="text-sm font-semibold text-gray-700">Alamat Pengiriman</label>
+                  {buyerAddress && (
+                    <p className="text-xs text-gray-500 -mt-1">📍 Otomatis terisi dari profil pembeli</p>
+                  )}
                   <Input 
-                    placeholder="Tulis alamat atau biarkan pembeli mengisinya" 
+                    placeholder="Tulis alamat pengiriman" 
                     value={shippingAddress}
                     onChange={(e) => setShippingAddress(e.target.value)}
                     className="rounded-xl h-12 bg-gray-50/50 border-gray-200"
                   />
                 </div>
 
+                <div className="rounded-2xl border border-green-100 bg-green-50 p-4 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-green-700">Subtotal Barang</span>
+                    <span className="font-bold text-green-900">Rp {invoiceSubtotal.toLocaleString('id-ID')}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-green-700">Ongkir</span>
+                    <span className="font-bold text-green-900">Rp {(Number(shippingCost) || 0).toLocaleString('id-ID')}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-green-200 pt-2">
+                    <span className="font-semibold text-green-800">Total Bayar</span>
+                    <span className="text-lg font-bold text-green-900">Rp {invoiceTotal.toLocaleString('id-ID')}</span>
+                  </div>
+                </div>
+
                 <div className="pt-4 flex gap-3">
                   <Button 
                     type="button" 
                     variant="ghost" 
-                    onClick={() => setIsInvoiceModalOpen(false)}
+                    onClick={() => {
+                      setIsInvoiceModalOpen(false);
+                      setInvoiceQuantity('1');
+                    }}
                     className="flex-1 rounded-xl h-12 hover:bg-gray-100"
                   >
                     Batal
@@ -548,6 +690,24 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
               </form>
             </CardContent>
           </Card>
+        </div>
+      )}
+      {/* QRIS Preview Dialog from Invoice */}
+      {showQrisInvoice && sellerPaymentInfo?.qris_image && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowQrisInvoice(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2"><QrCode className="w-5 h-5" /> QRIS Pembayaran</h3>
+              <button onClick={() => setShowQrisInvoice(false)} className="text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+            <div className="flex justify-center">
+              <img src={sellerPaymentInfo.qris_image} alt="QRIS" className="max-w-full max-h-[350px] object-contain rounded-xl" />
+            </div>
+            <div className="text-center text-sm text-gray-600">
+              <p className="font-bold">{sellerPaymentInfo.bank_name} - {sellerPaymentInfo.bank_account_number}</p>
+              <p>a.n. {sellerPaymentInfo.bank_account_holder}</p>
+            </div>
+          </div>
         </div>
       )}
 

@@ -50,7 +50,10 @@ import {
   ShieldCheck,
   ShieldAlert,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Banknote,
+  QrCode,
+  Copy as CopyIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -69,7 +72,7 @@ import type { UserData } from '../../types';
 import { getTranslation, type Language } from '../../utils/translations';
 
 import { OrderStatus, OrderItem, Order, ReturnStatus, ReturnRecord, UploadedFile } from '../../types/orders';
-import { orderService, reviewService } from '../../utils/apiServices';
+import { orderService, reviewService, returnService, authService } from '../../utils/apiServices';
 import { OrderReturnForm } from './orders/OrderReturnForm';
 
 type OrdersPageProps = {
@@ -124,6 +127,42 @@ function getReturnStatusColor(status: string) {
   }
 }
 
+function normalizeReturnRequest(ret: any): ReturnRecord {
+  const statusMap: Record<string, ReturnStatus> = {
+    pending: 'Pending',
+    in_review: 'In Review',
+    approved: 'Approved',
+    processing: 'Processing',
+    completed: 'Completed',
+    rejected: 'Rejected',
+  };
+
+  const product = ret.product || ret.Product || {};
+  const buyer = ret.buyer || {};
+  const seller = ret.seller || {};
+
+  return {
+    returnId: ret.return_code || String(ret.id),
+    orderId: String(ret.orderId),
+    orderItemId: ret.orderItemId || ret.order_item_id || undefined,
+    productName: product.name || 'Produk',
+    productImage: product.images?.[0] || '',
+    returnReason: ret.reason,
+    returnType: ret.return_type || 'refund',
+    returnStatus: statusMap[ret.status] || 'Pending',
+    requestedDate: ret.createdAt ? ret.createdAt.split('T')[0] : '',
+    completedDate: ret.completedAt ? ret.completedAt.split('T')[0] : undefined,
+    refundAmount: ret.refund_amount || undefined,
+    videoEvidence: ret.video_evidence || '',
+    photoEvidence: ret.photo_evidence || [],
+    rejectionReason: ret.rejection_reason || undefined,
+    adminNotes: ret.admin_notes || undefined,
+    customerName: buyer.name || '',
+    customerEmail: buyer.email || '',
+    creatorName: seller.name || '',
+  };
+}
+
 export function OrdersPage({ userData, onNavigateToReturn }: OrdersPageProps) {
   const t = getTranslation((userData.language as Language) || 'id');
   const [activeTab, setActiveTab] = useState('orders');
@@ -134,6 +173,9 @@ export function OrdersPage({ userData, onNavigateToReturn }: OrdersPageProps) {
   const [currentReview, setCurrentReview] = useState({ rating: 5, comment: '' });
   const [selectedEvidence, setSelectedEvidence] = useState<ReturnRecord | null>(null);
   const [showEvidenceDialog, setShowEvidenceDialog] = useState(false);
+  const [sellerPaymentInfoMap, setSellerPaymentInfoMap] = useState<Record<number, any>>({});
+  const [showQrisOrderDialog, setShowQrisOrderDialog] = useState(false);
+  const [activeQrisInfo, setActiveQrisInfo] = useState<any>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -149,8 +191,29 @@ export function OrdersPage({ userData, onNavigateToReturn }: OrdersPageProps) {
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
-      const ordersRes = await orderService.getMyOrders();
-      setOrders(ordersRes.data || []);
+      const [ordersRes, returnsRes] = await Promise.all([
+        orderService.getMyOrders(),
+        returnService.getMyReturns(),
+      ]);
+      const ordersData = ordersRes.data || [];
+      setOrders(ordersData);
+      setReturnHistory((returnsRes.data || []).map(normalizeReturnRequest));
+
+      // Fetch payment info for sellers of pending orders
+      const pendingOrders = ordersData.filter((o: any) => o.status === 'pending' && o.sellerId);
+      const uniqueSellerIds = [...new Set(pendingOrders.map((o: any) => o.sellerId))] as number[];
+      const paymentMap: Record<number, any> = {};
+      await Promise.all(
+        uniqueSellerIds.map(async (sellerId) => {
+          try {
+            const res = await authService.getPaymentInfo(sellerId);
+            paymentMap[sellerId] = res.data;
+          } catch (e) {
+            // Seller has no payment info
+          }
+        })
+      );
+      setSellerPaymentInfoMap(prev => ({ ...prev, ...paymentMap }));
     } catch (error) {
       console.error('Failed to fetch orders:', error);
       toast.error('Gagal mengambil data pesanan');
@@ -236,6 +299,16 @@ export function OrdersPage({ userData, onNavigateToReturn }: OrdersPageProps) {
     setSelectedOrderForReturn(order);
     setSelectedItemForReturn(item);
     setShowReturnForm(true);
+  };
+
+  // Check if an order item already has an active (non-rejected) return
+  const getActiveReturnForItem = (orderId: number, itemId: number): ReturnRecord | undefined => {
+    return returnHistory.find(
+      (ret) =>
+        String(ret.orderId) === String(orderId) &&
+        ret.orderItemId === itemId &&
+        ret.returnStatus !== 'Rejected'
+    );
   };
 
   const getReturnStatusColor = (status: string) => {
@@ -344,8 +417,13 @@ export function OrdersPage({ userData, onNavigateToReturn }: OrdersPageProps) {
                     )}
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <p className="text-sm text-gray-500">Total Harga</p>
-                        <p className="text-xl font-bold text-gray-800">Rp {Number(order.total_price || 0).toLocaleString('id-ID')}</p>
+                        <p className="text-sm text-gray-500">Total Bayar</p>
+                        <p className="text-xl font-bold text-gray-800">
+                          Rp {(Number(order.total_price || 0) + Number(order.shipping_cost || 0)).toLocaleString('id-ID')}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Barang Rp {Number(order.total_price || 0).toLocaleString('id-ID')} + Ongkir Rp {Number(order.shipping_cost || 0).toLocaleString('id-ID')}
+                        </p>
                       </div>
                       {order.tracking_number && (
                         <div className="text-right">
@@ -361,11 +439,16 @@ export function OrdersPage({ userData, onNavigateToReturn }: OrdersPageProps) {
                       {order.items?.map((item: any) => (
                         <div key={item.id} className="flex gap-4 items-center">
                           <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
-                            <ImageWithFallback src={item.Product?.images?.[0]} alt={item.Product?.name} className="w-full h-full object-cover" />
+                            <ImageWithFallback src={item.Product?.images?.[0]} alt={item.Product?.name} preset="thumbnail" className="w-full h-full object-cover" />
                           </div>
                           <div className="flex-1">
                             <h4 className="font-bold text-gray-800 line-clamp-1">{item.Product?.name}</h4>
-                            <p className="text-sm text-gray-500">Rp {item.price.toLocaleString('id-ID')} x {item.quantity}</p>
+                            <p className="text-sm text-gray-500">
+                              Rp {Number(item.price || 0).toLocaleString('id-ID')} x {item.quantity}
+                            </p>
+                            <p className="text-xs font-bold text-green-700">
+                              Subtotal Rp {(Number(item.price || 0) * Number(item.quantity || 1)).toLocaleString('id-ID')}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -374,6 +457,44 @@ export function OrdersPage({ userData, onNavigateToReturn }: OrdersPageProps) {
                     <div className="flex flex-col md:flex-row gap-3 pt-4 border-t border-gray-100">
                       {order.status === 'pending' && (
                         <div className="w-full space-y-3">
+                          {/* Seller Payment Info */}
+                          {sellerPaymentInfoMap[order.sellerId]?.bank_name && (
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100 space-y-2">
+                              <div className="flex items-center gap-2 text-green-800">
+                                <Banknote className="w-4 h-4" />
+                                <span className="text-sm font-bold">Info Pembayaran Penjual</span>
+                              </div>
+                              <div className="text-sm">
+                                <p className="font-bold text-green-900">
+                                  {sellerPaymentInfoMap[order.sellerId].bank_name} - {sellerPaymentInfoMap[order.sellerId].bank_account_number}
+                                </p>
+                                <p className="text-green-700">a.n. {sellerPaymentInfoMap[order.sellerId].bank_account_holder}</p>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(sellerPaymentInfoMap[order.sellerId].bank_account_number || '');
+                                    toast.success('Nomor rekening disalin!');
+                                  }}
+                                  className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 transition-colors"
+                                >
+                                  <CopyIcon className="w-3 h-3" /> Salin No. Rek
+                                </button>
+                                {sellerPaymentInfoMap[order.sellerId].qris_image && (
+                                  <button
+                                    onClick={() => {
+                                      setActiveQrisInfo(sellerPaymentInfoMap[order.sellerId]);
+                                      setShowQrisOrderDialog(true);
+                                    }}
+                                    className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 transition-colors"
+                                  >
+                                    <QrCode className="w-3 h-3" /> Lihat QRIS
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                           <Label className="text-sm font-bold text-orange-600">Unggah Bukti Transfer</Label>
                           <form onSubmit={handleUploadPayment} className="flex flex-col md:flex-row gap-2">
                             <Input 
@@ -393,7 +514,6 @@ export function OrdersPage({ userData, onNavigateToReturn }: OrdersPageProps) {
                               {isUploadingPayment && paymentOrderId === order.id ? <Loader2 className="animate-spin w-4 h-4" /> : 'Unggah'}
                             </Button>
                           </form>
-                          <p className="text-[10px] text-gray-500 italic">Lihat info rekening di chat atau detail pesanan.</p>
                         </div>
                       )}
 
@@ -406,22 +526,43 @@ export function OrdersPage({ userData, onNavigateToReturn }: OrdersPageProps) {
                         </Button>
                       )}
 
-                      {order.status === 'completed' && (
+                        {order.status === 'completed' && (
                         <div className="w-full space-y-2">
-                          {order.items?.map((item: any) => (
-                            <Button 
-                              key={item.id}
-                              variant="outline"
-                              onClick={() => setSelectedReviewItem({ 
-                                orderId: order.id, 
-                                productId: item.productId,
-                                productName: item.Product?.name || 'Produk' 
-                              })}
-                              className="w-full rounded-xl border-green-200 text-green-700 hover:bg-green-50 h-10 text-xs"
-                            >
-                              <Star className="w-4 h-4 mr-2" /> Beri Ulasan: {item.Product?.name}
-                            </Button>
-                          ))}
+                          {order.items?.map((item: any) => {
+                            const activeReturn = getActiveReturnForItem(order.id, item.id);
+                            return (
+                            <div key={item.id} className="grid gap-2 md:grid-cols-2">
+                              <Button 
+                                variant="outline"
+                                onClick={() => setSelectedReviewItem({ 
+                                  orderId: order.id, 
+                                  productId: item.productId,
+                                  productName: item.Product?.name || 'Produk' 
+                                })}
+                                className="w-full rounded-xl border-green-200 text-green-700 hover:bg-green-50 h-10 text-xs"
+                              >
+                                <Star className="w-4 h-4 mr-2" /> Beri Ulasan: {item.Product?.name}
+                              </Button>
+                              {activeReturn ? (
+                                <Button
+                                  variant="outline"
+                                  disabled
+                                  className="w-full rounded-xl border-gray-200 text-gray-400 h-10 text-xs cursor-not-allowed"
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" /> Retur Diajukan ({activeReturn.returnStatus})
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handleStartReturn(order, item)}
+                                  className="w-full rounded-xl border-orange-200 text-orange-700 hover:bg-orange-50 h-10 text-xs"
+                                >
+                                  <RotateCcw className="w-4 h-4 mr-2" /> Ajukan Retur
+                                </Button>
+                              )}
+                            </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -471,7 +612,7 @@ export function OrdersPage({ userData, onNavigateToReturn }: OrdersPageProps) {
                     <CardContent className="p-6">
                       <div className="flex gap-4">
                         <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100">
-                          <ImageWithFallback src={ret.productImage} alt={ret.productName} className="w-full h-full object-cover" />
+                          <ImageWithFallback src={ret.productImage} alt={ret.productName} preset="thumbnail" className="w-full h-full object-cover" />
                         </div>
                         <div>
                           <h4 className="font-medium">{ret.productName}</h4>
@@ -560,6 +701,25 @@ export function OrdersPage({ userData, onNavigateToReturn }: OrdersPageProps) {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* QRIS Preview Dialog for Orders */}
+        {showQrisOrderDialog && activeQrisInfo?.qris_image && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowQrisOrderDialog(false)}>
+            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-gray-800 flex items-center gap-2"><QrCode className="w-5 h-5" /> QRIS Pembayaran</h3>
+                <button onClick={() => setShowQrisOrderDialog(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+              </div>
+              <div className="flex justify-center">
+                <img src={activeQrisInfo.qris_image} alt="QRIS" className="max-w-full max-h-[350px] object-contain rounded-xl" />
+              </div>
+              <div className="text-center text-sm text-gray-600">
+                <p className="font-bold">{activeQrisInfo.bank_name} - {activeQrisInfo.bank_account_number}</p>
+                <p>a.n. {activeQrisInfo.bank_account_holder}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

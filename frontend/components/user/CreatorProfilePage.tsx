@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Star, MapPin, Store, MessageCircle, Loader2, Heart, Sparkles } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Store, MessageCircle, Loader2, Heart, Banknote, QrCode, Copy, Eye, Upload } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -11,7 +11,7 @@ import { ImageWithFallback } from '../figma/ImageWithFallback';
 import type { UserData } from '../../types';
 import type { Product } from '../../types';
 import { toast } from 'sonner';
-import { donationService, productService } from '../../utils/apiServices';
+import { donationService, productService, authService } from '../../utils/apiServices';
 import { normalizeProduct } from './HomePage';
 
 type CreatorProfilePageProps = {
@@ -21,9 +21,11 @@ type CreatorProfilePageProps = {
   onBack: () => void;
   onProductClick: (product: Product) => void;
   onChatSeller: (product: Product) => void;
+  isGuest?: boolean;
+  onNavigateToAuth?: () => void;
 };
 
-export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, onProductClick, onChatSeller }: CreatorProfilePageProps) {
+export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, onProductClick, onChatSeller, isGuest, onNavigateToAuth }: CreatorProfilePageProps) {
   const [creatorProducts, setCreatorProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDonateOpen, setIsDonateOpen] = useState(false);
@@ -31,6 +33,10 @@ export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, o
   const [customAmount, setCustomAmount] = useState('');
   const [donationMessage, setDonationMessage] = useState('');
   const [isSubmittingDonation, setIsSubmittingDonation] = useState(false);
+  const [creatorPaymentInfo, setCreatorPaymentInfo] = useState<any>(null);
+  const [isLoadingPayment, setIsLoadingPayment] = useState(false);
+  const [showQrisDonation, setShowQrisDonation] = useState(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
 
   const presetAmounts = [25000, 50000, 100000, 250000, 500000, 1000000];
 
@@ -54,31 +60,60 @@ export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, o
     }
   }, [creatorId]);
 
+  // Fetch creator payment info when donate dialog opens
+  useEffect(() => {
+    if (isDonateOpen && creatorId && !creatorPaymentInfo) {
+      setIsLoadingPayment(true);
+      authService.getPaymentInfo(creatorId)
+        .then(res => setCreatorPaymentInfo(res.data))
+        .catch(() => setCreatorPaymentInfo(null))
+        .finally(() => setIsLoadingPayment(false));
+    }
+  }, [isDonateOpen, creatorId]);
+
   const donationAmount = selectedAmount || Number(customAmount || 0);
 
   const handleDonate = async () => {
+    if (isGuest) {
+      toast.error('Silakan login untuk berdonasi ke kreator');
+      onNavigateToAuth?.();
+      return;
+    }
+
     if (!donationAmount || donationAmount < 1000) {
       toast.error('Nominal donasi minimal Rp 1.000');
       return;
     }
 
+    if (!proofFile) {
+      toast.error('Bukti transfer wajib diunggah sebelum donasi dikirim');
+      return;
+    }
+
     setIsSubmittingDonation(true);
     try {
-      await donationService.create({
-        creatorId,
-        amount: donationAmount,
-        message: donationMessage,
-      });
-      toast.success('Donasi berhasil dikirim dan menunggu review admin.');
-      setIsDonateOpen(false);
-      setSelectedAmount(null);
-      setCustomAmount('');
-      setDonationMessage('');
+      const formData = new FormData();
+      formData.append('creatorId', String(creatorId));
+      formData.append('amount', String(donationAmount));
+      formData.append('message', donationMessage);
+      formData.append('payment_proof', proofFile);
+
+      await donationService.create(formData);
+      toast.success('Donasi dan bukti transfer berhasil dikirim! Admin akan segera mereview donasi Anda.');
+      resetDonationDialog();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Gagal mengirim donasi');
     } finally {
       setIsSubmittingDonation(false);
     }
+  };
+
+  const resetDonationDialog = () => {
+    setIsDonateOpen(false);
+    setProofFile(null);
+    setSelectedAmount(null);
+    setCustomAmount('');
+    setDonationMessage('');
   };
 
   return (
@@ -138,7 +173,7 @@ export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, o
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {creatorProducts.map((work) => (
               <Card key={work.id} className="rounded-2xl shadow-sm border-0 overflow-hidden hover:shadow-xl transition-all cursor-pointer bg-white" onClick={() => onProductClick(work)}>
-                <div className="h-48 bg-gray-100"><ImageWithFallback src={work.image} alt={work.name} className="w-full h-full object-cover" /></div>
+                <div className="h-48 bg-gray-100"><ImageWithFallback src={work.image} alt={work.name} preset="card" className="w-full h-full object-cover" /></div>
                 <CardContent className="p-4">
                   <h3 className="font-medium text-gray-800 truncate">{work.name}</h3>
                   <div className="flex justify-between mt-2">
@@ -155,7 +190,7 @@ export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, o
         )}
       </div>
 
-      <Dialog open={isDonateOpen} onOpenChange={setIsDonateOpen}>
+      <Dialog open={isDonateOpen} onOpenChange={(open) => { if (!open) resetDonationDialog(); }}>
         <DialogContent className="rounded-2xl sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl text-gray-900">
@@ -171,10 +206,7 @@ export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, o
                 {presetAmounts.map((amount) => (
                   <button
                     key={amount}
-                    onClick={() => {
-                      setSelectedAmount(amount);
-                      setCustomAmount('');
-                    }}
+                    onClick={() => { setSelectedAmount(amount); setCustomAmount(''); }}
                     className={`rounded-xl border-2 p-3 text-sm transition-all ${
                       selectedAmount === amount
                         ? 'border-pink-500 bg-pink-50 text-pink-800'
@@ -195,10 +227,7 @@ export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, o
                   type="number"
                   min={1000}
                   value={customAmount}
-                  onChange={(event) => {
-                    setCustomAmount(event.target.value);
-                    setSelectedAmount(null);
-                  }}
+                  onChange={(event) => { setCustomAmount(event.target.value); setSelectedAmount(null); }}
                   placeholder="Masukkan nominal donasi"
                   className="rounded-xl pl-12"
                 />
@@ -207,14 +236,14 @@ export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, o
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4" />
+                <MessageCircle className="h-4 w-4" />
                 Pesan untuk Kreator
               </Label>
               <Textarea
                 value={donationMessage}
                 onChange={(event) => setDonationMessage(event.target.value)}
                 placeholder="Tulis pesan dukungan singkat..."
-                className="min-h-[100px] rounded-xl"
+                className="min-h-[80px] rounded-xl"
               />
             </div>
 
@@ -226,17 +255,110 @@ export function CreatorProfilePage({ userData, creatorId, creatorName, onBack, o
                 </div>
               </div>
             )}
+
+            {donationAmount > 0 && creatorPaymentInfo?.bank_name && (
+              <div className="rounded-xl border border-green-100 bg-gradient-to-br from-green-50 to-emerald-50 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-green-800">
+                  <Banknote className="w-4 h-4" />
+                  <span className="text-sm font-bold">Transfer ke:</span>
+                </div>
+                <div className="text-sm">
+                  <p className="font-bold text-green-900">
+                    {creatorPaymentInfo.bank_name} - {creatorPaymentInfo.bank_account_number}
+                  </p>
+                  <p className="text-green-700">a.n. {creatorPaymentInfo.bank_account_holder}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { navigator.clipboard.writeText(creatorPaymentInfo.bank_account_number || ''); toast.success('Nomor rekening disalin!'); }}
+                    className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 transition-colors"
+                  >
+                    <Copy className="w-3 h-3" /> Salin No. Rek
+                  </button>
+                  {creatorPaymentInfo.qris_image && (
+                    <button
+                      type="button"
+                      onClick={() => setShowQrisDonation(true)}
+                      className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 transition-colors"
+                    >
+                      <QrCode className="w-3 h-3" /> Lihat QRIS
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {isLoadingPayment && (
+              <div className="flex items-center gap-2 text-gray-400 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" /> Memuat info pembayaran...
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2 font-semibold text-gray-700">
+                <Upload className="w-4 h-4" />
+                Bukti Transfer / Screenshot <span className="text-red-500">*</span>
+              </Label>
+              <div
+                className={`relative border-2 border-dashed rounded-xl p-5 text-center transition-colors ${
+                  proofFile ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-gray-50 hover:border-pink-300'
+                }`}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                {proofFile ? (
+                  <div className="space-y-2">
+                    <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center mx-auto">
+                      <Eye className="w-6 h-6 text-green-600" />
+                    </div>
+                    <p className="font-medium text-green-800 text-sm">{proofFile.name}</p>
+                    <p className="text-xs text-green-600">Klik untuk ganti file</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Upload className="w-9 h-9 text-gray-400 mx-auto" />
+                    <p className="text-sm text-gray-600">Klik untuk pilih bukti transfer</p>
+                    <p className="text-xs text-gray-400">JPG, PNG, WebP maks. 5MB</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDonateOpen(false)} className="rounded-xl">Batal</Button>
-            <Button onClick={handleDonate} disabled={isSubmittingDonation} className="rounded-xl bg-pink-600 text-white hover:bg-pink-700">
+            <Button variant="outline" onClick={resetDonationDialog} className="rounded-xl">Batal</Button>
+            <Button onClick={handleDonate} disabled={isSubmittingDonation || donationAmount < 1000 || !proofFile} className="rounded-xl bg-pink-600 text-white hover:bg-pink-700">
               {isSubmittingDonation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Heart className="mr-2 h-4 w-4" />}
               Kirim Donasi
             </Button>
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
+
+      {/* QRIS Preview Dialog for Donation */}
+      {showQrisDonation && creatorPaymentInfo?.qris_image && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowQrisDonation(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2"><QrCode className="w-5 h-5" /> QRIS Pembayaran</h3>
+              <button onClick={() => setShowQrisDonation(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <div className="flex justify-center">
+              <img src={creatorPaymentInfo.qris_image} alt="QRIS" className="max-w-full max-h-[350px] object-contain rounded-xl" />
+            </div>
+            <div className="text-center text-sm text-gray-600">
+              <p className="font-bold">{creatorPaymentInfo.bank_name} - {creatorPaymentInfo.bank_account_number}</p>
+              <p>a.n. {creatorPaymentInfo.bank_account_holder}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
-import { Home, Search, Upload, Heart, ArrowRight, Sparkles } from 'lucide-react';
+import { Home, Search, Upload, Heart, ArrowRight } from 'lucide-react';
+
+// Custom RUPA logo component matching lucide icon interface
+const RupaLogo = ({ className }: { className?: string }) => (
+  <img src="/ic_rupa.svg" alt="Logo RUPA" className={className} style={{ objectFit: 'contain' }} />
+);
 
 type OnboardingTutorialProps = {
   username: string;
@@ -16,7 +21,7 @@ export function OnboardingTutorial({ username, onComplete }: OnboardingTutorialP
       title: `Selamat datang kembali, ${username}!`,
       description: 'Apa yang mau kalian lihat hari ini?',
       message: 'Mari kita kenali fitur-fitur RUPA untuk memaksimalkan pengalaman Anda! 🇮🇩',
-      icon: Sparkles,
+      icon: RupaLogo,
       color: 'from-green-500 to-orange-500',
     },
     {

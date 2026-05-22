@@ -38,15 +38,7 @@ export function CartPage({ cartItems, updateQuantity, clearCart, onNavigateToSea
       return;
     }
 
-    toast.success(t.orderSuccess, {
-      duration: 5000,
-    });
-
-    setTimeout(() => {
-      clearCart();
-      setPaymentMethod('');
-      setMessageToCreator('');
-    }, 1500);
+    toast.info('Checkout RUPA diproses melalui chat. Buka produk lalu klik Chat Penjual untuk meminta tagihan resmi.');
   };
 
   return (

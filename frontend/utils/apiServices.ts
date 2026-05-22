@@ -26,6 +26,8 @@ export const authService = {
     api.post('/users/apply-creator', data, {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
+  getPaymentInfo: (userId: number | string) =>
+    api.get(`/users/${userId}/payment-info`),
 };
 
 // --- Product Services ---
@@ -83,6 +85,14 @@ export const reviewService = {
     api.get(`/reviews/product/${productId}`),
 };
 
+// --- Return Services ---
+export const returnService = {
+  getMyReturns: () => api.get('/returns/my-returns'),
+  create: (data: FormData) => api.post('/returns', data, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+};
+
 // --- License Services ---
 export const licenseService = {
   submit: (data: any) => api.post('/licenses/submit', data),
@@ -91,8 +101,16 @@ export const licenseService = {
 
 // --- Donation Services ---
 export const donationService = {
-  create: (data: { creatorId: number; amount: number; message?: string }) =>
-    api.post('/donations', data),
+  create: (data: FormData) =>
+    api.post('/donations', data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  getMyDonations: () =>
+    api.get('/donations/my-donations'),
+  uploadProof: (donationId: number, formData: FormData) =>
+    api.put(`/donations/${donationId}/proof`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 };
 
 // --- Admin Services ---
@@ -128,4 +146,11 @@ export const adminService = {
   getDonationStats: () => api.get('/admin/donations/stats'),
   reviewDonation: (id: number, action: 'approve' | 'reject' | 'distribute', adminNote?: string) =>
     api.put(`/admin/donations/${id}`, { action, adminNote }),
+  // Returns
+  getReturns: (status?: string) => api.get('/admin/returns', { params: status && status !== 'all' ? { status } : {} }),
+  reviewReturn: (
+    id: number,
+    action: 'review' | 'approve' | 'reject' | 'process' | 'complete',
+    payload?: { adminNote?: string; rejectionReason?: string; refundAmount?: number },
+  ) => api.put(`/admin/returns/${id}`, { action, ...(payload || {}) }),
 };

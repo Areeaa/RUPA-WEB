@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -18,6 +18,8 @@ import {
   SelectValue,
 } from '../ui/select';
 import { getTranslation, type Language } from '../../utils/translations';
+import { productService } from '../../utils/apiServices';
+import { normalizeProduct } from './HomePage';
 
 type SearchPageProps = {
   addToCart: (item: Omit<CartItem, 'quantity'>) => void;
@@ -31,80 +33,31 @@ export function SearchPage({ addToCart, favorites, toggleFavorite, userData }: S
   const [searchQuery, setSearchQuery] = useState('');
   const [priceRange, setPriceRange] = useState([0, 500000]);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [allProducts, setAllProducts] = useState<any[]>([]);
 
-  const allProducts = [
-    {
-      id: '1',
-      name: 'Tas Ramah Lingkungan dari Sampah Plastik',
-      creator: 'Budi Santoso',
-      price: 125000,
-      rating: 4.8,
-      image: 'https://images.unsplash.com/photo-1750472598714-eb232f8de4bd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxJbmRvbmVzaWFuJTIwY3JhZnRzJTIwcmVjeWNsZWQlMjBwcm9kdWN0c3xlbnwxfHx8fDE3NjE3MTMwMTl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-      category: 'Daur Ulang',
-      description: 'Tas stylish yang dibuat dari plastik daur ulang',
-    },
-    {
-      id: '2',
-      name: 'Lampu Tenaga Surya Portable',
-      creator: 'Siti Rahayu',
-      price: 250000,
-      rating: 4.9,
-      image: 'https://images.unsplash.com/photo-1661458178984-c614e6f2c5fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjcmVhdGl2ZSUyMGlubm92YXRpb24lMjB0ZWNobm9sb2d5fGVufDF8fHx8MTc2MTcxMzAyMHww&ixlib=rb-4.1.0&q=80&w=1080',
-      category: 'Energi',
-      description: 'Solusi penerangan hemat energi untuk rumah',
-    },
-    {
-      id: '3',
-      name: 'Kerajinan Anyaman Tradisional Modern',
-      creator: 'Ahmad Fauzi',
-      price: 180000,
-      rating: 4.7,
-      image: 'https://images.unsplash.com/photo-1570823179175-556823eb806b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0cmFkaXRpb25hbCUyMGNyYWZ0JTIwYXJ0d29ya3xlbnwxfHx8fDE3NjE3MTMwMjB8MA&ixlib=rb-4.1.0&q=80&w=1080',
-      category: 'Kerajinan',
-      description: 'Perpaduan tradisi dan modernitas dalam satu karya',
-    },
-    {
-      id: '4',
-      name: 'Produk Organik Ramah Kulit',
-      creator: 'Dewi Lestari',
-      price: 95000,
-      rating: 4.9,
-      image: 'https://images.unsplash.com/photo-1652607779025-55e89f9fcfe0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlY28lMjBmcmllbmRseSUyMGhhbmRtYWRlJTIwc3VzdGFpbmFibGV8ZW58MXx8fHwxNzYxNzEzMDIwfDA&ixlib=rb-4.1.0&q=80&w=1080',
-      category: 'Organik',
-      description: 'Perawatan kulit alami tanpa bahan kimia',
-    },
-    {
-      id: '5',
-      name: 'Pupuk Organik dari Kompos',
-      creator: 'Rahmat Hidayat',
-      price: 75000,
-      rating: 4.6,
-      image: 'https://images.unsplash.com/photo-1652607779025-55e89f9fcfe0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlY28lMjBmcmllbmRseSUyMGhhbmRtYWRlJTIwc3VzdGFpbmFibGV8ZW58MXx8fHwxNzYxNzEzMDIwfDA&ixlib=rb-4.1.0&q=80&w=1080',
-      category: 'Pertanian',
-      description: 'Pupuk organik berkualitas untuk tanaman sehat',
-    },
-    {
-      id: '6',
-      name: 'Botol Minum Eco-Friendly',
-      creator: 'Linda Sari',
-      price: 150000,
-      rating: 4.8,
-      image: 'https://images.unsplash.com/photo-1750472598714-eb232f8de4bd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxJbmRvbmVzaWFuJTIwY3JhZnRzJTIwcmVjeWNsZWQlMjBwcm9kdWN0c3xlbnwxfHx8fDE3NjE3MTMwMTl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-      category: 'Daur Ulang',
-      description: 'Botol ramah lingkungan dengan desain menarik',
-    },
-  ];
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await productService.getAll();
+        setAllProducts((res.data || []).map(normalizeProduct));
+      } catch (error) {
+        toast.error('Gagal memuat produk');
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   const filteredProducts = allProducts.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.creator.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchQuery.toLowerCase());
+                         (product.description || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
     return matchesSearch && matchesPrice && matchesCategory;
   });
 
-  const handleAddToCart = (product: typeof allProducts[0]) => {
+  const handleAddToCart = (product: any) => {
     addToCart({
       id: product.id,
       name: product.name,

@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Sparkles, Mail, Lock, User } from 'lucide-react';
+import { Mail, Lock, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { UserFooter } from './user/UserFooter';
@@ -100,8 +100,8 @@ export function SignUpPage() {
       <Card className="w-full max-w-lg shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center mb-4">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-orange-400 flex items-center justify-center shadow-lg">
-              <Sparkles className="w-10 h-10 text-white" />
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-orange-400 flex items-center justify-center shadow-lg overflow-hidden">
+              <img src="/ic_rupa.svg" alt="Logo RUPA" className="w-12 h-12 object-contain" />
             </div>
           </div>
           <CardTitle className="text-green-800">Bergabung dengan RUPA</CardTitle>

@@ -173,7 +173,7 @@ export function ProductDetailPage({ product: initialProduct, onBack, userData, i
               <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px]">
                 <div className="border-b bg-gray-50 p-3 sm:p-4 lg:border-b-0 lg:border-r">
                   <div className="relative flex aspect-[4/3] max-h-[560px] items-center justify-center overflow-hidden rounded-xl bg-white group">
-                    <ImageWithFallback src={productImages[currentImageIndex]} alt={product.name} className="h-full w-full object-contain transition-all duration-500" />
+                    <ImageWithFallback src={productImages[currentImageIndex]} alt={product.name} preset="detail" className="h-full w-full object-contain transition-all duration-500" />
                     {productImages.length > 1 && (
                       <>
                         <button onClick={prevImage} className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-lg transition-all hover:bg-white">
@@ -195,7 +195,7 @@ export function ProductDetailPage({ product: initialProduct, onBack, userData, i
                           className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-white transition-all ${currentImageIndex === idx ? 'border-green-500 shadow-sm' : 'border-transparent hover:border-gray-300'}`}
                           aria-label={`Lihat gambar produk ${idx + 1}`}
                         >
-                          <ImageWithFallback src={image} alt={`${product.name} ${idx + 1}`} className="h-full w-full object-cover" />
+                          <ImageWithFallback src={image} alt={`${product.name} ${idx + 1}`} preset="thumbnail" className="h-full w-full object-cover" />
                         </button>
                       ))}
                     </div>

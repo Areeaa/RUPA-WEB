@@ -17,6 +17,11 @@ export type UserData = {
   themeColor?: string;
   language?: string;
   hasSeenTutorial?: boolean;
+  // Payment info fields
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_account_holder?: string;
+  qris_image?: string;
 };
 
 export type AuthState = {
@@ -87,4 +92,16 @@ export type ChatMessage = {
     images: string[];
     image?: string;
   };
+  payment_info?: {
+    bank_name?: string;
+    bank_account_number?: string;
+    bank_account_holder?: string;
+    qris_image?: string;
+  };
+  invoice_items?: Array<{
+    productId: number;
+    name?: string;
+    quantity: number;
+    price: number;
+  }>;
 };

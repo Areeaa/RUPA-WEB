@@ -19,7 +19,7 @@ import {
   Home,
   FileText,
   Settings,
-  Sparkles,
+
   Package,
   MessageCircle,
   Store,
@@ -41,6 +41,12 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
   const { authState, logout, updateUser } = useAuth();
   const { userData } = authState;
   const navigate = useNavigate();
+  const displayUserData: UserData = userData || {
+    name: 'Pengunjung',
+    email: '',
+    language: 'id',
+    themeColor: 'green',
+  };
   const [activePage, setActivePage] = useState<string>('home');
   const [showOnboarding, setShowOnboarding] = useState(userData ? !userData.hasSeenTutorial && !isGuest : false);
   const [viewingCreator, setViewingCreator] = useState<{ id: number; name: string } | null>(null);
@@ -55,14 +61,14 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
   }, [activePage]);
 
   useEffect(() => {
-    if (isGuest && !['home', 'license'].includes(activePage)) {
+    if (isGuest && !['home', 'license', 'product-detail', 'creator-profile'].includes(activePage)) {
       setActivePage('home');
     }
   }, [activePage, isGuest]);
 
   const currentTheme =
-    userData && userData.themeColor
-      ? THEME_COLORS[userData.themeColor as keyof typeof THEME_COLORS] || THEME_COLORS.green
+    displayUserData.themeColor
+      ? THEME_COLORS[displayUserData.themeColor as keyof typeof THEME_COLORS] || THEME_COLORS.green
       : THEME_COLORS.green;
 
   const handleOnboardingComplete = () => {
@@ -76,7 +82,7 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const t = getTranslation((userData?.language as Language) || 'id');
+  const t = getTranslation((displayUserData.language as Language) || 'id');
 
   const allNavItems = [
     { id: 'home', label: t.home, icon: Home },
@@ -123,18 +129,18 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
         } as React.CSSProperties
       }
     >
-      {showOnboarding && userData ? (
+      {showOnboarding && userData && !isGuest ? (
         <Suspense fallback={null}>
           <OnboardingTutorial username={userData.name || userData.username || ''} onComplete={handleOnboardingComplete} />
         </Suspense>
-      ) : userData ? (
+      ) : (
         <>
           <div className="sticky top-0 z-50 bg-gradient-to-r from-[var(--theme-light)] to-[var(--theme-secondary)] text-white shadow-lg">
             <div className="container mx-auto px-4">
               <div className="flex items-center justify-between py-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur">
-                    <Sparkles className="h-5 w-5" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur overflow-hidden">
+                    <img src="/ic_rupa.svg" alt="Logo RUPA" className="h-7 w-7 object-contain" />
                   </div>
                   <div>
                     <h1 className="text-xl">RUPA</h1>
@@ -236,7 +242,7 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
             }>
               {activePage === 'home' && (
                 <HomePage
-                  userData={userData}
+                  userData={displayUserData}
                   onProductClick={handleProductClick}
                   navigateToOrders={() => (isGuest ? navigate('/login') : setActivePage('orders'))}
                   isGuest={isGuest}
@@ -245,12 +251,20 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
 
               {activePage === 'creator-profile' && (
                 <CreatorProfilePage
-                  userData={userData}
+                  userData={displayUserData}
                   creatorId={viewingCreator?.id || 0}
                   creatorName={viewingCreator?.name || ''}
                   onBack={() => setActivePage('product-detail')}
                   onProductClick={handleProductClick}
+                  isGuest={isGuest}
+                  onNavigateToAuth={() => navigate('/login')}
                   onChatSeller={async (product) => {
+                    if (isGuest) {
+                      toast('Silakan masuk/daftar untuk mengirim pesan', { icon: '🔒' });
+                      navigate('/login');
+                      return;
+                    }
+
                     try {
                       const res = await chatService.startChat(product.id);
                       const conv = res.data;
@@ -268,7 +282,7 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
               {activePage === 'product-detail' && selectedProduct && (
                 <ProductDetailPage
                   product={selectedProduct}
-                  userData={userData}
+                  userData={displayUserData}
                   onBack={() => setActivePage('home')}
                   isGuest={isGuest}
                   onNavigateToAuth={() => navigate('/login')}
@@ -301,7 +315,7 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
                 />
               )}
 
-              {activePage === 'chat' && (
+              {activePage === 'chat' && !isGuest && userData && (
                 <ChatListPage
                   userData={userData}
                   onBack={() => setActivePage('home')}
@@ -314,7 +328,7 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
                 />
               )}
 
-              {activePage === 'chat-room' && (
+              {activePage === 'chat-room' && !isGuest && userData && (
                 <ChatRoomPage
                   userData={userData}
                   onBack={() => setActivePage(chatContextProduct ? 'product-detail' : 'chat')}
@@ -325,11 +339,11 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
                 />
               )}
 
-              {activePage === 'profile' && !isGuest && <ProfilePage userData={userData} updateUserData={updateUser} />}
-              {activePage === 'orders' && <OrdersPage userData={userData} onNavigateToReturn={() => setActivePage('return')} />}
-              {activePage === 'license' && <LicensePage userData={userData} />}
-              {activePage === 'settings' && !isGuest && <SettingsPage userData={userData} updateUserData={updateUser} onLogout={handleLogout} />}
-              {activePage === 'return' && <ReturnPage userData={userData} />}
+              {activePage === 'profile' && !isGuest && userData && <ProfilePage userData={userData} updateUserData={updateUser} />}
+              {activePage === 'orders' && !isGuest && userData && <OrdersPage userData={userData} onNavigateToReturn={() => setActivePage('return')} />}
+              {activePage === 'license' && <LicensePage userData={displayUserData} />}
+              {activePage === 'settings' && !isGuest && userData && <SettingsPage userData={userData} updateUserData={updateUser} onLogout={handleLogout} />}
+              {activePage === 'return' && !isGuest && userData && <ReturnPage userData={userData} />}
             </Suspense>
           </div>
 
@@ -338,7 +352,7 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
             <UserFooter isGuest={isGuest} onNavigate={handleMenuClick} />
           )}
         </>
-      ) : null}
+      )}
     </div>
   );
 }

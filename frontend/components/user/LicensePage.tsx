@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -16,6 +16,7 @@ import {
 } from '../ui/select';
 import type { UserData } from '../../types';
 import { getTranslation, type Language } from '../../utils/translations';
+import { licenseService } from '../../utils/apiServices';
 
 type LicensePageProps = {
   userData: UserData;
@@ -31,20 +32,49 @@ export function LicensePage({ userData }: LicensePageProps) {
     duration: '',
     description: '',
   });
+  const [licenses, setLicenses] = useState<any[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const fetchLicenses = async () => {
+    setIsHistoryLoading(true);
+    try {
+      const res = await licenseService.getMyLicenses();
+      setLicenses(res.data || []);
+    } catch (error) {
+      setLicenses([]);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLicenses();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.creationName || !formData.creatorName || !formData.licenseType) {
+    if (!formData.creationName || !formData.creatorName || !formData.licenseType || !formData.duration || !formData.purpose || !formData.description) {
       toast.error(t.fillRequiredFields);
       return;
     }
 
-    toast.success(t.licenseRequested, {
-      duration: 5000,
-    });
+    setIsSubmitting(true);
+    try {
+      await licenseService.submit({
+        nama_karya: formData.creationName,
+        nama_pengaju: formData.creatorName,
+        jenis_lisensi: formData.licenseType,
+        durasi: formData.duration,
+        tujuan: formData.purpose,
+        deskripsi_karya: formData.description,
+      });
 
-    setTimeout(() => {
+      toast.success(t.licenseRequested, {
+        duration: 5000,
+      });
+
       setFormData({
         creationName: '',
         creatorName: '',
@@ -53,14 +83,19 @@ export function LicensePage({ userData }: LicensePageProps) {
         duration: '',
         description: '',
       });
-    }, 1500);
+      fetchLicenses();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gagal mengirim pengajuan lisensi');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const licenseTypes = [
-    { value: 'commercial', label: t.commercial, fee: 'Rp 2,500,000 - 10,000,000' },
-    { value: 'non-commercial', label: t.nonCommercial, fee: 'Rp 500,000 - 2,000,000' },
-    { value: 'educational', label: t.educational, fee: 'Rp 250,000 - 1,000,000' },
-    { value: 'government', label: t.government, fee: t.negotiation },
+    { value: 'komersil', label: t.commercial, fee: 'Rp 2,500,000 - 10,000,000' },
+    { value: 'non komersil', label: t.nonCommercial, fee: 'Rp 500,000 - 2,000,000' },
+    { value: 'pendidikan', label: t.educational, fee: 'Rp 250,000 - 1,000,000' },
+    { value: 'pemerintah', label: t.government, fee: t.negotiation },
   ];
 
   return (
@@ -169,17 +204,17 @@ export function LicensePage({ userData }: LicensePageProps) {
                         <SelectValue placeholder={t.selectDuration} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1-year">{t.oneYear}</SelectItem>
-                        <SelectItem value="3-years">{t.threeYears}</SelectItem>
-                        <SelectItem value="5-years">{t.fiveYears}</SelectItem>
-                        <SelectItem value="perpetual">{t.perpetual}</SelectItem>
+                        <SelectItem value="1thn">{t.oneYear}</SelectItem>
+                        <SelectItem value="3thn">{t.threeYears}</SelectItem>
+                        <SelectItem value="5thn">{t.fiveYears}</SelectItem>
+                        <SelectItem value="selamanya">{t.perpetual}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-gray-700">{t.purpose}</Label>
+                  <Label className="text-gray-700">{t.purpose} <span className="text-red-500">*</span></Label>
                   <Input
                     placeholder={t.purposePlaceholder}
                     className="rounded-xl border-gray-200 focus:border-green-400 focus:ring-green-400"
@@ -189,7 +224,7 @@ export function LicensePage({ userData }: LicensePageProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-gray-700">{t.description}</Label>
+                  <Label className="text-gray-700">{t.description} <span className="text-red-500">*</span></Label>
                   <Textarea
                     placeholder={t.descriptionPlaceholderLong}
                     className="rounded-xl resize-none"
@@ -201,12 +236,45 @@ export function LicensePage({ userData }: LicensePageProps) {
 
                 <Button
                   type="submit"
+                  disabled={isSubmitting}
                   className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg h-14"
                 >
                   <FileText className="w-5 h-5 mr-2" />
-                  {t.submitLicense}
+                  {isSubmitting ? 'Mengirim...' : t.submitLicense}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl shadow-lg border-0">
+            <CardHeader>
+              <CardTitle className="text-green-800">{t.returnHistory || 'Riwayat Pengajuan'}</CardTitle>
+              <CardDescription>Status pengajuan lisensi Anda</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isHistoryLoading ? (
+                <p className="text-sm text-gray-500">Memuat riwayat lisensi...</p>
+              ) : licenses.length === 0 ? (
+                <p className="text-sm text-gray-500">Belum ada pengajuan lisensi.</p>
+              ) : (
+                <div className="space-y-3">
+                  {licenses.map((license) => (
+                    <div key={license.id} className="flex flex-col gap-2 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-900">{license.nama_karya}</p>
+                        <p className="text-sm text-gray-500">{license.jenis_lisensi} - {license.durasi}</p>
+                      </div>
+                      <span className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${
+                        license.status === 'approved' ? 'bg-green-100 text-green-700' :
+                        license.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {license.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 

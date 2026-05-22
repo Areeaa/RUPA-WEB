@@ -1,26 +1,30 @@
-import { useState } from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Shield, Lock, ArrowLeft, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { useAuth } from '../hooks/useAuth';
+import { useState } from "react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Shield, Lock, ArrowLeft, Loader2, Mail } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "../hooks/useAuth";
+import { authService } from "../utils/apiServices";
 
 type AdminLoginPageProps = {
   onBackToGuest: () => void;
 };
 
 export function AdminLoginPage({ onBackToGuest }: AdminLoginPageProps) {
-  const [adminForm, setAdminForm] = useState({ adminId: '', password: '' });
+  const [adminForm, setAdminForm] = useState({ adminId: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [isSendingReset, setIsSendingReset] = useState(false);
   const { adminLogin } = useAuth();
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!adminForm.adminId || !adminForm.password) {
-      toast.error('Mohon lengkapi semua field!');
+      toast.error("Mohon lengkapi semua field!");
       return;
     }
 
@@ -29,13 +33,32 @@ export function AdminLoginPage({ onBackToGuest }: AdminLoginPageProps) {
       // Kita anggap adminId sebagai email untuk backend
       await adminLogin({
         email: adminForm.adminId,
-        password: adminForm.password
+        password: adminForm.password,
       });
       // AuthContext adminLogin otomatis menampilkan toast sukses dan mengupdate state
     } catch (error) {
       // Error sudah di-handle oleh toast di AuthContext
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      toast.error("Masukkan email admin Anda");
+      return;
+    }
+    setIsSendingReset(true);
+    try {
+      await authService.forgotPassword(forgotEmail.trim());
+      toast.success("Email pemulihan terkirim! Cek inbox Anda.");
+      setIsForgotPassword(false);
+      setForgotEmail("");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Gagal mengirim email pemulihan");
+    } finally {
+      setIsSendingReset(false);
     }
   };
 
@@ -48,62 +71,120 @@ export function AdminLoginPage({ onBackToGuest }: AdminLoginPageProps) {
               <Shield className="w-8 h-8 text-emerald-400" />
             </div>
           </div>
-          <CardTitle className="text-2xl text-emerald-400">Portal Admin RUPA</CardTitle>
+          <CardTitle className="text-2xl text-emerald-400">
+            {isForgotPassword ? "Lupa Password Admin?" : "Portal Admin RUPA"}
+          </CardTitle>
           <CardDescription className="text-slate-400">
-            Akses terbatas. Hanya untuk staf yang berwenang.
+            {isForgotPassword
+              ? "Masukkan email admin Anda untuk menerima link pemulihan password"
+              : "Akses terbatas. Hanya untuk staf yang berwenang."}
           </CardDescription>
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={handleAdminLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="admin-id" className="text-slate-300">Admin ID</Label>
-              <div className="relative">
-                <Shield className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
-                <Input
-                  id="admin-id"
-                  type="text"
-                  placeholder="Masukkan Admin ID"
-                  className="pl-10 rounded-xl bg-slate-900 border-slate-700 text-white focus:border-emerald-400 focus:ring-emerald-400"
-                  value={adminForm.adminId}
-                  onChange={(e) => setAdminForm({ ...adminForm, adminId: e.target.value })}
-                />
+          {isForgotPassword ? (
+            /* === FORGOT PASSWORD FORM === */
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="admin-forgot-email" className="text-slate-300">
+                  Email Admin
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
+                  <Input
+                    id="admin-forgot-email"
+                    type="email"
+                    placeholder="admin@rupa.com"
+                    className="pl-10 rounded-xl bg-slate-900 border-slate-700 text-white focus:border-emerald-400 focus:ring-emerald-400"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="admin-password" className="text-slate-300">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
-                <Input
-                  id="admin-password"
-                  type="password"
-                  placeholder="Masukkan password"
-                  className="pl-10 rounded-xl bg-slate-900 border-slate-700 text-white focus:border-emerald-400 focus:ring-emerald-400"
-                  value={adminForm.password}
-                  onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <Button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg mt-6"
-            >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Masuk ke Dashboard"}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center">
-             <button
-                onClick={onBackToGuest}
-                className="text-sm text-slate-400 hover:text-white flex items-center justify-center w-full gap-2 transition-colors"
+              <Button
+                type="submit"
+                disabled={isSendingReset}
+                className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg mt-2"
               >
-                <ArrowLeft className="w-4 h-4" />
-                Kembali ke Beranda Utama
-              </button>
-          </div>
+                {isSendingReset ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mengirim...</>
+                ) : (
+                  "Kirim Link Pemulihan"
+                )}
+              </Button>
+
+              <div className="mt-4 text-center">
+                <button
+                  type="button"
+                  onClick={() => setIsForgotPassword(false)}
+                  className="text-sm text-emerald-400 hover:text-emerald-300 flex items-center justify-center w-full gap-2 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Kembali ke Login Admin
+                </button>
+              </div>
+            </form>
+          ) : (
+            /* === LOGIN FORM === */
+            <>
+              <form onSubmit={handleAdminLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="admin-id" className="text-slate-300">
+                    Admin ID
+                  </Label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
+                    <Input
+                      id="admin-id"
+                      type="text"
+                      placeholder="Masukkan Admin ID"
+                      className="pl-10 rounded-xl bg-slate-900 border-slate-700 text-white focus:border-emerald-400 focus:ring-emerald-400"
+                      value={adminForm.adminId}
+                      onChange={(e) => setAdminForm({ ...adminForm, adminId: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="admin-password" className="text-slate-300">
+                      Password
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => setIsForgotPassword(true)}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline font-medium"
+                    >
+                      Lupa password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
+                    <Input
+                      id="admin-password"
+                      type="password"
+                      placeholder="Masukkan password"
+                      className="pl-10 rounded-xl bg-slate-900 border-slate-700 text-white focus:border-emerald-400 focus:ring-emerald-400"
+                      value={adminForm.password}
+                      onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <Button type="submit" disabled={isLoading} className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg mt-6">
+                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Masuk ke Dashboard"}
+                </Button>
+              </form>
+
+              <div className="mt-6 text-center">
+                <button onClick={onBackToGuest} className="text-sm text-slate-400 hover:text-white flex items-center justify-center w-full gap-2 transition-colors">
+                  <ArrowLeft className="w-4 h-4" />
+                  Kembali ke Beranda Utama
+                </button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

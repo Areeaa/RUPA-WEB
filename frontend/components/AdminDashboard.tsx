@@ -13,6 +13,7 @@ import {
   Loader2,
   Menu,
   Heart,
+  RotateCcw,
 } from 'lucide-react';
 import type { UserData } from '../types';
 import { toast } from 'sonner';
@@ -25,6 +26,7 @@ import { AdminLicenses } from './admin/AdminLicenses';
 import { AdminCategories } from './admin/AdminCategories';
 import { AdminReports } from './admin/AdminReports';
 import { AdminDonations } from './admin/AdminDonations';
+import { AdminReturns } from './admin/AdminReturns';
 
 type AdminDashboardProps = {
   onLogout?: () => void;
@@ -43,6 +45,7 @@ const adminTabs = [
   { value: 'analytics', label: 'Analytics', icon: TrendingUp },
   { value: 'licenses', label: 'Lisensi', icon: FileText },
   { value: 'donations', label: 'Donasi', icon: Heart },
+  { value: 'returns', label: 'Retur', icon: RotateCcw },
   { value: 'reports', label: 'Laporan', icon: Flag },
   { value: 'categories', label: 'Kategori', icon: Shield },
 ] as const;
@@ -250,6 +253,10 @@ export function AdminDashboard({ onLogout, adminData }: AdminDashboardProps) {
 
               <TabsContent value="donations" className="mt-0">
                 <AdminDonations />
+              </TabsContent>
+
+              <TabsContent value="returns" className="mt-0">
+                <AdminReturns />
               </TabsContent>
 
               <TabsContent value="reports" className="mt-0">

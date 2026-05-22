@@ -4,9 +4,10 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Sparkles, Lock, User, ArrowLeft } from 'lucide-react';
+import { Lock, User, ArrowLeft, Mail, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
+import { authService } from '../utils/apiServices';
 import { UserFooter } from './user/UserFooter';
 
 const GOOGLE_CLIENT_ID = '24822636459-0nl718o3a8agpthdnekoji3rpniq6mvs.apps.googleusercontent.com';
@@ -25,6 +26,9 @@ export function LoginPage() {
   const { login, googleLogin } = useAuth();
   const [userForm, setUserForm] = useState({ email: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [isSendingReset, setIsSendingReset] = useState(false);
 
   const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +40,25 @@ export function LoginPage() {
       // Error handled in context toast
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      toast.error('Masukkan email Anda');
+      return;
+    }
+    setIsSendingReset(true);
+    try {
+      await authService.forgotPassword(forgotEmail.trim());
+      toast.success('Email pemulihan terkirim! Cek inbox Anda.');
+      setIsForgotPassword(false);
+      setForgotEmail('');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gagal mengirim email pemulihan');
+    } finally {
+      setIsSendingReset(false);
     }
   };
 
@@ -98,85 +121,144 @@ export function LoginPage() {
 
           <CardHeader className="text-center space-y-2 mt-4">
             <div className="flex justify-center mb-4">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-orange-400 flex items-center justify-center shadow-lg">
-                <Sparkles className="w-10 h-10 text-white" />
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-orange-400 flex items-center justify-center shadow-lg overflow-hidden">
+                <img src="/ic_rupa.svg" alt="Logo RUPA" className="w-12 h-12 object-contain" />
               </div>
             </div>
-            <CardTitle className="text-green-800 text-2xl">Masuk ke RUPA</CardTitle>
+            <CardTitle className="text-green-800 text-2xl">
+              {isForgotPassword ? 'Lupa Password?' : 'Masuk ke RUPA'}
+            </CardTitle>
             <CardDescription className="text-orange-700">
-              Lanjutkan perjalananmu mencari karya anak bangsa
+              {isForgotPassword
+                ? 'Masukkan email Anda dan kami akan kirimkan link pemulihan'
+                : 'Lanjutkan perjalananmu mencari karya anak bangsa'}
             </CardDescription>
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={handleUserLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="nama@email.com"
-                    className="pl-10 rounded-xl bg-white/50 border-gray-200 focus:border-green-500 transition-all"
-                    value={userForm.email}
-                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                    required
-                  />
+            {isForgotPassword ? (
+              /* === FORGOT PASSWORD FORM === */
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="forgot-email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="forgot-email"
+                      type="email"
+                      placeholder="nama@email.com"
+                      className="pl-10 rounded-xl bg-white/50 border-gray-200 focus:border-green-500 transition-all"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="user-password" className="text-gray-700">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                  <Input
-                    id="user-password"
-                    type="password"
-                    placeholder="Masukkan Password"
-                    className="pl-10 rounded-xl border-gray-200"
-                    value={userForm.password}
-                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                    required
-                  />
+                <Button
+                  type="submit"
+                  disabled={isSendingReset}
+                  className="w-full rounded-xl bg-gradient-to-r from-green-500 to-orange-500 hover:from-green-600 hover:to-orange-600 text-white shadow-lg"
+                >
+                  {isSendingReset ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mengirim...</>
+                  ) : (
+                    'Kirim Link Pemulihan'
+                  )}
+                </Button>
+
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotPassword(false)}
+                    className="text-sm text-green-600 font-semibold hover:text-green-700 hover:underline flex items-center justify-center gap-1 w-full"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" /> Kembali ke Login
+                  </button>
                 </div>
-              </div>
+              </form>
+            ) : (
+              /* === LOGIN FORM === */
+              <>
+                <form onSubmit={handleUserLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="nama@email.com"
+                        className="pl-10 rounded-xl bg-white/50 border-gray-200 focus:border-green-500 transition-all"
+                        value={userForm.email}
+                        onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
 
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full rounded-xl bg-gradient-to-r from-green-500 to-orange-500 hover:from-green-600 hover:to-orange-600 text-white shadow-lg"
-              >
-                {isSubmitting ? 'Memproses...' : 'Masuk'}
-              </Button>
-            </form>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="user-password" className="text-gray-700">Password</Label>
+                      <button
+                        type="button"
+                        onClick={() => setIsForgotPassword(true)}
+                        className="text-xs text-orange-600 hover:text-orange-700 hover:underline font-medium"
+                      >
+                        Lupa password?
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                      <Input
+                        id="user-password"
+                        type="password"
+                        placeholder="Masukkan Password"
+                        className="pl-10 rounded-xl border-gray-200"
+                        value={userForm.password}
+                        onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white/80 px-2 text-gray-500">atau lanjutkan dengan</span>
-              </div>
-            </div>
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full rounded-xl bg-gradient-to-r from-green-500 to-orange-500 hover:from-green-600 hover:to-orange-600 text-white shadow-lg"
+                  >
+                    {isSubmitting ? 'Memproses...' : 'Masuk'}
+                  </Button>
+                </form>
 
-            <div id="google-signin-btn" className="flex justify-center"></div>
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-gray-300" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white/80 px-2 text-gray-500">atau lanjutkan dengan</span>
+                  </div>
+                </div>
 
-            <noscript>
-              <Button type="button" variant="outline" className="w-full rounded-xl border-gray-300 hover:bg-gray-50 text-gray-700 mt-2">
-                <GoogleIcon />
-                Google
-              </Button>
-            </noscript>
+                <div id="google-signin-btn" className="flex justify-center"></div>
 
-            <div className="text-center pt-6">
-              <p className="text-sm text-gray-600">
-                Belum punya akun?{' '}
-                <button onClick={() => navigate('/signup')} className="text-green-600 font-semibold hover:text-green-700 hover:underline">
-                  Daftar sekarang
-                </button>
-              </p>
-            </div>
+                <noscript>
+                  <Button type="button" variant="outline" className="w-full rounded-xl border-gray-300 hover:bg-gray-50 text-gray-700 mt-2">
+                    <GoogleIcon />
+                    Google
+                  </Button>
+                </noscript>
+
+                <div className="text-center pt-6">
+                  <p className="text-sm text-gray-600">
+                    Belum punya akun?{' '}
+                    <button onClick={() => navigate('/signup')} className="text-green-600 font-semibold hover:text-green-700 hover:underline">
+                      Daftar sekarang
+                    </button>
+                  </p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

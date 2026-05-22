@@ -101,7 +101,7 @@ export function ChatListPage({ userData, onBack, onOpenChat }: ChatListPageProps
                   <div className="relative">
                     <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-200 border-2 border-gray-50 shadow-sm">
                       {chat.partnerAvatar ? (
-                        <ImageWithFallback src={chat.partnerAvatar} alt={chat.partnerName} className="w-full h-full object-cover" />
+                        <ImageWithFallback src={chat.partnerAvatar} alt={chat.partnerName} preset="avatar" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-400 to-orange-400 text-white font-bold text-lg">
                           {chat.partnerName.substring(0, 2).toUpperCase()}

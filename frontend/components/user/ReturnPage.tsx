@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -35,48 +35,13 @@ import {
 } from '../ui/dialog';
 import type { UserData } from '../../types';
 import { getTranslation, type Language } from '../../utils/translations';
+import { orderService, returnService } from '../../utils/apiServices';
+
 
 type ReturnPageProps = {
   userData: UserData;
   selectedOrderId?: string;
 };
-
-// Mock orders data - in real app this would come from API
-const mockOrders = [
-  {
-    orderId: 'ORD-2025-001234',
-    orderDate: '2025-10-25',
-    items: [
-      {
-        id: '1',
-        productName: 'Eco-Friendly Water Filter',
-        quantity: 2,
-        price: 150000,
-        status: 'Delivered',
-      },
-    ],
-  },
-  {
-    orderId: 'ORD-2025-001235',
-    orderDate: '2025-10-27',
-    items: [
-      {
-        id: '2',
-        productName: 'Solar Panel Kit',
-        quantity: 1,
-        price: 500000,
-        status: 'Delivered',
-      },
-      {
-        id: '3',
-        productName: 'Organic Fertilizer Pack',
-        quantity: 3,
-        price: 75000,
-        status: 'Delivered',
-      },
-    ],
-  },
-];
 
 export function ReturnPage({ userData, selectedOrderId }: ReturnPageProps) {
   const t = getTranslation((userData.language as Language) || 'id');
@@ -89,6 +54,9 @@ export function ReturnPage({ userData, selectedOrderId }: ReturnPageProps) {
   const [additionalPhotos, setAdditionalPhotos] = useState<File[]>([]);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [generatedReturnId, setGeneratedReturnId] = useState('');
+  const [orders, setOrders] = useState<any[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingReturns, setExistingReturns] = useState<any[]>([]);
   
   const videoInputRef = useRef<HTMLInputElement>(null);
   const photosInputRef = useRef<HTMLInputElement>(null);
@@ -102,6 +70,23 @@ export function ReturnPage({ userData, selectedOrderId }: ReturnPageProps) {
         pink: { primary: '#ec4899', light: '#f472b6', secondary: '#f9a8d4' },
       }[userData.themeColor]
     : null) || { primary: '#16a34a', light: '#22c55e', secondary: '#4ade80' };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [ordersRes, returnsRes] = await Promise.all([
+          orderService.getMyOrders(),
+          returnService.getMyReturns(),
+        ]);
+        setOrders((ordersRes.data || []).filter((order: any) => order.status === 'completed'));
+        setExistingReturns(returnsRes.data || []);
+      } catch (error) {
+        toast.error('Gagal mengambil data');
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -135,7 +120,7 @@ export function ReturnPage({ userData, selectedOrderId }: ReturnPageProps) {
     setAdditionalPhotos(additionalPhotos.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validation
     if (!selectedOrder) {
       toast.error(t.selectOrderFirst);
@@ -158,15 +143,44 @@ export function ReturnPage({ userData, selectedOrderId }: ReturnPageProps) {
       return;
     }
 
-    // Generate return ID
-    const returnId = `RET-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-    setGeneratedReturnId(returnId);
-    setShowSuccessDialog(true);
-    toast.success(t.returnSubmitted);
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('orderId', selectedOrder);
+      formData.append('orderItemId', selectedItem);
+      formData.append('reason', returnReason);
+      formData.append('returnType', solutionPreference);
+      formData.append('quantity', '1');
+      formData.append('description', returnDetails);
+      formData.append('video', unboxingVideo);
+      additionalPhotos.forEach((photo) => formData.append('photos', photo));
+
+      const res = await returnService.create(formData);
+      const returnId = res.data.returnRequest?.return_code || `RET-${res.data.returnRequest?.id}`;
+      setGeneratedReturnId(returnId);
+      setShowSuccessDialog(true);
+      toast.success(t.returnSubmitted);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gagal mengirim pengajuan retur');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const selectedOrderData = mockOrders.find(o => o.orderId === selectedOrder);
-  const selectedItemData = selectedOrderData?.items.find(i => i.id === selectedItem);
+  const selectedOrderData = orders.find(o => String(o.id) === selectedOrder);
+  const selectedItemData = selectedOrderData?.items?.find((i: any) => String(i.id) === selectedItem);
+
+  // Helper: check if item already has an active return
+  const hasActiveReturn = (itemId: number) => {
+    return existingReturns.some(
+      (ret: any) => ret.orderItemId === itemId && ret.status !== 'rejected'
+    );
+  };
+
+  // Filter items to exclude ones with active returns
+  const availableItems = selectedOrderData?.items?.filter(
+    (item: any) => !hasActiveReturn(item.id)
+  ) || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 p-6">
@@ -230,9 +244,9 @@ export function ReturnPage({ userData, selectedOrderId }: ReturnPageProps) {
                   <SelectValue placeholder={t.selectOrderPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockOrders.map((order) => (
-                    <SelectItem key={order.orderId} value={order.orderId}>
-                      {order.orderId} - {new Date(order.orderDate).toLocaleDateString('id-ID')}
+                  {orders.map((order) => (
+                    <SelectItem key={order.id} value={String(order.id)}>
+                      Order #{order.id} - {new Date(order.createdAt).toLocaleDateString('id-ID')}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -248,11 +262,15 @@ export function ReturnPage({ userData, selectedOrderId }: ReturnPageProps) {
                     <SelectValue placeholder={t.selectItemPlaceholder} />
                   </SelectTrigger>
                   <SelectContent>
-                    {selectedOrderData?.items.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.productName} (Qty: {item.quantity})
-                      </SelectItem>
-                    ))}
+                    {availableItems.length === 0 ? (
+                      <SelectItem value="__none" disabled>Semua item sudah diretur</SelectItem>
+                    ) : (
+                      availableItems.map((item: any) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.Product?.name || 'Produk'} (Qty: {item.quantity})
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -422,11 +440,12 @@ export function ReturnPage({ userData, selectedOrderId }: ReturnPageProps) {
             {/* Submit Button */}
             <Button
               onClick={handleSubmit}
+              disabled={isSubmitting}
               className="w-full rounded-xl text-white bg-[var(--theme-primary)]"
               size="lg"
             >
               <Upload className="w-5 h-5 mr-2" />
-              {t.submitReturn}
+              {isSubmitting ? 'Mengirim...' : t.submitReturn}
             </Button>
           </CardContent>
         </Card>
@@ -455,7 +474,7 @@ export function ReturnPage({ userData, selectedOrderId }: ReturnPageProps) {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Produk:</span>
-                <span className="text-gray-900">{selectedItemData?.productName}</span>
+                <span className="text-gray-900">{selectedItemData?.Product?.name || 'Produk'}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">{t.solutionPreference}:</span>

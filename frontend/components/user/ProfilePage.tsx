@@ -276,7 +276,7 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
                 {myProducts.map((work) => (
                   <Card key={work.id} className="rounded-2xl shadow-sm border-0 overflow-hidden bg-white">
                     <div className="relative h-40 bg-gray-100">
-                      <ImageWithFallback src={work.image || ''} alt={work.name} className="w-full h-full object-cover" />
+                      <ImageWithFallback src={work.image || ''} alt={work.name} preset="card" className="w-full h-full object-cover" />
                     </div>
                     <CardContent className="p-4">
                       <h3 className="font-semibold text-gray-800 truncate mb-1">{work.name}</h3>
@@ -445,11 +445,16 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
                       {order.items?.map((item: any) => (
                         <div key={item.id} className="flex gap-3 items-center">
                           <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
-                            <ImageWithFallback src={item.Product?.images?.[0]} alt={item.Product?.name} className="w-full h-full object-cover" />
+                            <ImageWithFallback src={item.Product?.images?.[0]} alt={item.Product?.name} preset="thumbnail" className="w-full h-full object-cover" />
                           </div>
                           <div>
                             <p className="font-bold text-gray-800">{item.Product?.name}</p>
-                            <p className="text-sm text-gray-500">Rp {item.price.toLocaleString('id-ID')} x {item.quantity}</p>
+                            <p className="text-sm text-gray-500">
+                              Rp {Number(item.price || 0).toLocaleString('id-ID')} x {item.quantity}
+                            </p>
+                            <p className="text-xs font-bold text-green-700">
+                              Subtotal Rp {(Number(item.price || 0) * Number(item.quantity || 1)).toLocaleString('id-ID')}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -459,7 +464,9 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
                       <div>
                         <p className="text-xs font-bold text-gray-400 uppercase mb-1">Alamat Pengiriman</p>
                         <p className="text-sm text-gray-700">{order.shipping_address || 'N/A'}</p>
-                        <p className="text-sm font-bold mt-2 text-green-700">Ongkir: Rp {order.shipping_cost?.toLocaleString('id-ID') || 0}</p>
+                        <p className="text-sm font-bold mt-2 text-green-700">Barang: Rp {Number(order.total_price || 0).toLocaleString('id-ID')}</p>
+                        <p className="text-sm font-bold text-green-700">Ongkir: Rp {Number(order.shipping_cost || 0).toLocaleString('id-ID')}</p>
+                        <p className="text-sm font-bold text-gray-900">Total: Rp {(Number(order.total_price || 0) + Number(order.shipping_cost || 0)).toLocaleString('id-ID')}</p>
                       </div>
 
                       <div className="flex flex-col justify-end gap-3">

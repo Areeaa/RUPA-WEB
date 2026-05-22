@@ -76,11 +76,16 @@ export function AdminLicenses() {
               <TableBody>
                 {licenses.map((app: any) => (
                   <TableRow key={app.id}>
-                    <TableCell className="font-medium">{app.applicant || app.user?.name || '-'}</TableCell>
-                    <TableCell>{app.productName || app.product?.name || '-'}</TableCell>
+                    <TableCell className="font-medium">
+                      <div>
+                        <p>{app.pemohon?.name || app.nama_pengaju || '-'}</p>
+                        <p className="text-xs text-gray-500">{app.pemohon?.email || ''}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>{app.nama_karya || '-'}</TableCell>
                     <TableCell>
                       <Badge className="bg-purple-100 text-purple-800">
-                        {app.licenseType || app.license_type || 'Standard'}
+                        {app.jenis_lisensi || '-'} / {app.durasi || '-'}
                       </Badge>
                     </TableCell>
                     <TableCell>

@@ -33,6 +33,7 @@ export type ReturnStatus = 'Pending' | 'In Review' | 'Approved' | 'Processing' |
 export type ReturnRecord = {
   returnId: string;
   orderId: string;
+  orderItemId?: number;
   productName: string;
   productImage: string;
   returnReason: string;

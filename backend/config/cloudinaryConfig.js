@@ -11,12 +11,29 @@ cloudinary.config({
 });
 
 // 2. Atur penyimpanan Multer agar langsung ke Cloudinary
+//    dengan transformasi otomatis untuk kompresi gambar
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'figma_rupa_products', // Nama folder yang akan otomatis terbuat di Cloudinary Anda
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'], // Format gambar yang diizinkan
-    // transformation: [{ width: 800, height: 600, crop: 'limit' }] // Opsional: otomatis kompres/resize gambar
+  params: async (req, file) => {
+    const isVideo = file.mimetype.startsWith('video/');
+
+    return {
+      folder: 'figma_rupa_products',
+      resource_type: isVideo ? 'video' : 'image',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov', 'avi'],
+      // Transformasi otomatis hanya untuk gambar (bukan video)
+      ...(isVideo ? {} : {
+        transformation: [
+          {
+            quality: 'auto:good',  // Kompresi otomatis kualitas baik (hemat ~40-60% ukuran)
+            fetch_format: 'auto',  // Auto-konversi ke WebP/AVIF jika browser mendukung
+            width: 1600,           // Maks lebar 1600px (cukup untuk layar besar)
+            height: 1600,          // Maks tinggi 1600px
+            crop: 'limit',         // Hanya resize jika gambar lebih besar, tidak paksakan
+          },
+        ],
+      }),
+    };
   },
 });
 

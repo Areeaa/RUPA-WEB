@@ -17,6 +17,10 @@ const createDonation = async (req, res) => {
       return res.status(400).json({ message: 'Nominal donasi minimal Rp 1.000.' });
     }
 
+    if (!req.file) {
+      return res.status(400).json({ message: 'Bukti pembayaran donasi wajib diunggah.' });
+    }
+
     if (Number(creatorId) === req.user.id) {
       return res.status(400).json({ message: 'Anda tidak dapat mengirim donasi ke akun sendiri.' });
     }
@@ -38,10 +42,12 @@ const createDonation = async (req, res) => {
       creatorId,
       amount: parsedAmount,
       message: message ? String(message).trim() : null,
+      payment_proof: req.file.path,
+      payment_proof_at: new Date(),
     });
 
     res.status(201).json({
-      message: 'Donasi berhasil dikirim dan menunggu review admin.',
+      message: 'Donasi dan bukti pembayaran berhasil dikirim. Menunggu review admin.',
       donation,
     });
   } catch (error) {
@@ -126,6 +132,9 @@ const reviewDonation = async (req, res) => {
     }
 
     if (action === 'approve') {
+      if (!donation.payment_proof) {
+        return res.status(400).json({ message: 'Donasi belum memiliki bukti pembayaran.' });
+      }
       donation.status = 'approved';
     }
 
@@ -136,6 +145,9 @@ const reviewDonation = async (req, res) => {
     if (action === 'distribute') {
       if (!['approved', 'pending'].includes(donation.status)) {
         return res.status(400).json({ message: 'Donasi ini tidak dapat didistribusikan.' });
+      }
+      if (!donation.payment_proof) {
+        return res.status(400).json({ message: 'Donasi belum memiliki bukti pembayaran.' });
       }
       donation.status = 'distributed';
       donation.distributedAt = new Date();
@@ -156,9 +168,64 @@ const reviewDonation = async (req, res) => {
   }
 };
 
+// Upload bukti pembayaran donasi oleh donatur
+const uploadDonationProof = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const donorId = req.user.id;
+
+    const donation = await Donation.findOne({ where: { id, donorId } });
+    if (!donation) {
+      return res.status(404).json({ message: 'Donasi tidak ditemukan atau bukan milik Anda.' });
+    }
+
+    if (!['pending', 'approved'].includes(donation.status)) {
+      return res.status(400).json({ message: 'Donasi ini sudah tidak bisa diupload buktinya.' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'File bukti pembayaran wajib diunggah!' });
+    }
+
+    donation.payment_proof = req.file.path;
+    donation.payment_proof_at = new Date();
+    await donation.save();
+
+    res.status(200).json({
+      message: 'Bukti pembayaran donasi berhasil diunggah.',
+      donation,
+    });
+  } catch (error) {
+    console.error('Error upload donation proof:', error);
+    res.status(500).json({ message: 'Gagal mengunggah bukti pembayaran.' });
+  }
+};
+
+// Riwayat donasi yang dikirim oleh user yang sedang login
+const getMyDonations = async (req, res) => {
+  try {
+    const donorId = req.user.id;
+
+    const donations = await Donation.findAll({
+      where: { donorId },
+      include: [
+        { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+
+    res.status(200).json(donations);
+  } catch (error) {
+    console.error('Error get my donations:', error);
+    res.status(500).json({ message: 'Gagal mengambil riwayat donasi.' });
+  }
+};
+
 module.exports = {
   createDonation,
   getDonations,
   getDonationStats,
   reviewDonation,
+  uploadDonationProof,
+  getMyDonations,
 };

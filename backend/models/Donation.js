@@ -48,6 +48,14 @@ const Donation = sequelize.define('Donation', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  payment_proof: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  payment_proof_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 }, {
   tableName: 'donations',
   timestamps: true,

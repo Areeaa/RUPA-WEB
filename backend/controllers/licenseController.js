@@ -12,7 +12,7 @@ const submitLicense = async (req, res) => {
     const userId = req.user.id;
 
     // Validasi input sederhana
-    if (!nama_karya || !nama_pengaju || !jenis_lisensi || !durasi) {
+    if (!nama_karya || !nama_pengaju || !jenis_lisensi || !durasi || !tujuan || !deskripsi_karya) {
       return res.status(400).json({ message: 'Mohon lengkapi semua field yang diwajibkan!' });
     }
 

@@ -76,17 +76,29 @@ const updateProfile = async (req, res) => {
     if (name) user.name = name;
 
     // --- Update Field Baru ---
-    if (req.body.themeColor) user.themeColor = req.body.themeColor;
-    if (req.body.language) user.language = req.body.language;
-    if (req.body.fullName) user.fullName = req.body.fullName;
-    if (req.body.phoneNumber) user.phoneNumber = req.body.phoneNumber;
-    if (req.body.address) user.address = req.body.address;
-    if (req.body.gender) user.gender = req.body.gender;
-    if (req.body.age) user.age = req.body.age;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'themeColor')) user.themeColor = req.body.themeColor;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'language')) user.language = req.body.language;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'fullName')) user.fullName = req.body.fullName;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'phoneNumber')) user.phoneNumber = req.body.phoneNumber;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'address')) user.address = req.body.address;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'gender')) user.gender = req.body.gender;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'age')) user.age = req.body.age;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'hasSeenTutorial')) user.hasSeenTutorial = req.body.hasSeenTutorial;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'profile_picture')) user.profile_picture = req.body.profile_picture;
 
-    // Update Foto Profil
-    if (req.file) {
-      user.profile_picture = req.file.path; 
+    // --- Update Informasi Pembayaran ---
+    if (Object.prototype.hasOwnProperty.call(req.body, 'bank_name')) user.bank_name = req.body.bank_name;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'bank_account_number')) user.bank_account_number = req.body.bank_account_number;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'bank_account_holder')) user.bank_account_holder = req.body.bank_account_holder;
+
+    // Update Foto Profil (dari field 'profile_picture')
+    if (req.files && req.files['profile_picture'] && req.files['profile_picture'][0]) {
+      user.profile_picture = req.files['profile_picture'][0].path;
+    }
+
+    // Update Gambar QRIS (dari field 'qris_image')
+    if (req.files && req.files['qris_image'] && req.files['qris_image'][0]) {
+      user.qris_image = req.files['qris_image'][0].path;
     }
 
     // Simpan semua perubahan
@@ -173,9 +185,29 @@ const applyForCreator = async (req, res) => {
   }
 };
 
+// --- Fitur: Lihat Info Pembayaran User (Publik) ---
+const getPaymentInfo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id, {
+      attributes: ['id', 'name', 'bank_name', 'bank_account_number', 'bank_account_holder', 'qris_image'],
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User tidak ditemukan!' });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Error get payment info:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan pada server' });
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
   changePassword,
-  applyForCreator
+  applyForCreator,
+  getPaymentInfo
 };

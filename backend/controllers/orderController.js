@@ -4,25 +4,66 @@ const Conversation = require('../models/Conversation');
 const Product = require('../models/Product');
 const Message = require('../models/Message');
 
+const parseMoney = (value) => {
+  if (typeof value === 'number') return value;
+  const cleaned = String(value || '').replace(/[^\d]/g, '');
+  return Number(cleaned || 0);
+};
+
 const createInvoiceFromChat = async (req, res) => {
   try {
-    // Tambahkan shipping_address dan shipping_cost di destructuring
-    const { conversationId, productId, shipping_address, shipping_cost } = req.body;
+    const { conversationId, productId, quantity, shipping_address, shipping_cost } = req.body;
     const sellerId = req.user.id;
+    const User = require('../models/User');
 
     const conversation = await Conversation.findByPk(conversationId);
     if (!conversation || conversation.sellerId !== sellerId) {
       return res.status(403).json({ message: 'Akses ditolak atau chat tidak ditemukan' });
     }
 
-    const product = await Product.findByPk(productId);
-    if (!product) return res.status(404).json({ message: 'Produk tidak ditemukan' });
+    // Ambil data pembeli untuk mendapatkan alamat dari profil
+    const buyer = await User.findByPk(conversation.buyerId, {
+      attributes: ['id', 'name', 'address']
+    });
 
-    // Buat Order dengan data pengiriman
+    const parsedProductId = Number(productId);
+    const parsedQuantity = Number(quantity || 1);
+
+    if (!Number.isInteger(parsedProductId) || parsedProductId < 1) {
+      return res.status(400).json({ message: 'Produk pada tagihan tidak valid.' });
+    }
+
+    if (!Number.isInteger(parsedQuantity) || parsedQuantity < 1) {
+      return res.status(400).json({ message: 'Jumlah barang minimal 1.' });
+    }
+
+    const product = await Product.findOne({
+      where: {
+        id: parsedProductId,
+        userId: sellerId,
+        status: 'active',
+      },
+    });
+
+    if (!product) {
+      return res.status(400).json({ message: 'Produk harus aktif dan milik Anda.' });
+    }
+
+    const productPrice = parseMoney(product.price);
+    if (!productPrice || productPrice < 1) {
+      return res.status(400).json({ message: 'Harga produk tidak valid.' });
+    }
+
+    const totalPrice = productPrice * parsedQuantity;
+    const parsedShippingCost = Math.max(parseMoney(shipping_cost), 0);
+
+    // Gunakan alamat dari profil pembeli sebagai fallback jika seller tidak mengisi alamat
+    const finalAddress = shipping_address || buyer?.address || 'Alamat menyusul di chat';
+
     const newOrder = await Order.create({
-      total_price: product.price,
-      shipping_cost: shipping_cost || 0,
-      shipping_address: shipping_address || 'Alamat menyusul di chat',
+      total_price: totalPrice,
+      shipping_cost: parsedShippingCost,
+      shipping_address: finalAddress,
       userId: conversation.buyerId,
       sellerId: sellerId,
       status: 'pending'
@@ -31,12 +72,22 @@ const createInvoiceFromChat = async (req, res) => {
     await OrderItem.create({
       orderId: newOrder.id,
       productId: product.id,
-      quantity: 1,
-      price: product.price
+      quantity: parsedQuantity,
+      price: productPrice
     });
 
-    const totalBayar = parseInt(product.price) + parseInt(shipping_cost || 0);
-    res.status(201).json({ message: 'Tagihan dibuat', order: newOrder });
+    const orderWithItems = await Order.findByPk(newOrder.id, {
+      include: [{
+        model: OrderItem,
+        as: 'items',
+        include: [{
+          model: Product,
+          attributes: ['id', 'name', 'images', 'price']
+        }]
+      }]
+    });
+
+    res.status(201).json({ message: 'Tagihan dibuat', order: orderWithItems, buyer_address: buyer?.address || '' });
 
   } catch (error) {
     console.error(error);
@@ -74,8 +125,9 @@ const verifyPayment = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { action } = req.body; 
+    const sellerId = req.user.id;
     
-    const order = await Order.findByPk(orderId);
+    const order = await Order.findOne({ where: { id: orderId, sellerId } });
     if (!order) return res.status(404).json({ message: 'Pesanan tidak ditemukan' });
 
     if (action === 'approve') {
@@ -106,11 +158,12 @@ const inputResi = async (req, res) => {
     }
 
     // Cari order dan pastikan ini milik penjual yang benar
-    const order = await Order.findByPk(orderId, {
+    const order = await Order.findOne({
+      where: { id: orderId, sellerId },
       include: [{ model: OrderItem, as: 'items', include: ['Product'] }]
     });
 
-    if (!order) return res.status(404).json({ message: 'Pesanan tidak ditemukan' });
+    if (!order) return res.status(404).json({ message: 'Pesanan tidak ditemukan atau bukan milik toko Anda' });
 
     // Pastikan statusnya memang sedang diproses
     if (order.status !== 'processing') {

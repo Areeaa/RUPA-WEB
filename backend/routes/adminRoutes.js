@@ -6,6 +6,7 @@ const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 const { getPendingLicenses, verifyLicense } = require('../controllers/licenseController');
 const { getProductReports, reviewProductReport } = require('../controllers/productReportController');
 const { getDonations, getDonationStats, reviewDonation } = require('../controllers/donationController');
+const { getAdminReturns, reviewReturn } = require('../controllers/returnController');
 const { 
   getSystemStats, 
   getDailyTransactions, 
@@ -60,5 +61,9 @@ router.put('/reports/products/:id', reviewProductReport);
 router.get('/donations', getDonations);
 router.get('/donations/stats', getDonationStats);
 router.put('/donations/:id', reviewDonation);
+
+// Rute Retur & Refund (Hanya Admin)
+router.get('/returns', getAdminReturns);
+router.put('/returns/:id', reviewReturn);
 
 module.exports = router;

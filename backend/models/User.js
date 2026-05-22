@@ -13,7 +13,7 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: true,
     // Anda bisa menaruh link gambar 'avatar kosong' default di sini nanti jika mau
-    defaultValue: 'https://res.cloudinary.com/drsr72xr8/image/upload/v1776049484/dummy-profile-pic_g9nmvw.png' 
+    defaultValue: 'https://ui-avatars.com/api/?name=RUPA&background=16a34a&color=ffffff&size=200'
   },
 
   // data kyc untuk pengajuan creator
@@ -42,6 +42,13 @@ const User = sequelize.define('User', {
   address: { type: DataTypes.STRING, allowNull: true },
   gender: { type: DataTypes.STRING, allowNull: true },
   age: { type: DataTypes.STRING, allowNull: true },
+  hasSeenTutorial: { type: DataTypes.BOOLEAN, defaultValue: false },
+
+  // --- Informasi Pembayaran (untuk kreator/penjual) ---
+  bank_name: { type: DataTypes.STRING, allowNull: true },
+  bank_account_number: { type: DataTypes.STRING, allowNull: true },
+  bank_account_holder: { type: DataTypes.STRING, allowNull: true },
+  qris_image: { type: DataTypes.STRING, allowNull: true },
 
   resetPasswordToken: { type: DataTypes.STRING, allowNull: true },
   resetPasswordExpires: { type: DataTypes.DATE, allowNull: true }

@@ -32,6 +32,16 @@ const Message = sequelize.define('Message', {
   type: {
     type: DataTypes.ENUM('text', 'purchase_request', 'invoice'),
     defaultValue: 'text'
+  },
+
+  payment_info: {
+    type: DataTypes.JSON,
+    allowNull: true
+  },
+
+  invoice_items: {
+    type: DataTypes.JSON,
+    allowNull: true
   }
 }, { tableName: 'messages', timestamps: true });
 

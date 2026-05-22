@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getProfile, updateProfile, changePassword, applyForCreator } = require('../controllers/userController');
+const { getProfile, updateProfile, changePassword, applyForCreator, getPaymentInfo } = require('../controllers/userController');
 const { verifyToken } = require('../middleware/authMiddleware');
 
 // Import multer dari konfigurasi Cloudinary kita
@@ -10,8 +10,14 @@ const { upload } = require('../config/cloudinaryConfig');
 router.get('/profile', verifyToken, getProfile);
 
 // Route Edit Profil (PUT)
-// Menggunakan upload.single karena foto profil hanya ada 1
-router.put('/profile', verifyToken, upload.single('profile_picture'), updateProfile);
+// Menggunakan upload.fields agar bisa terima foto profil DAN gambar QRIS
+router.put('/profile', verifyToken, upload.fields([
+  { name: 'profile_picture', maxCount: 1 },
+  { name: 'qris_image', maxCount: 1 }
+]), updateProfile);
+
+// Route Info Pembayaran (GET - Publik, tapi tetap perlu login)
+router.get('/:id/payment-info', verifyToken, getPaymentInfo);
 
 // Route Ganti Password (PUT)
 router.put('/change-password', verifyToken, changePassword);

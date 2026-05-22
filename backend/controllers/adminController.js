@@ -18,6 +18,16 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Verifikasi koneksi SMTP saat server start
+transporter.verify((err, success) => {
+  if (err) {
+    console.error('❌ SMTP Connection FAILED:', err.message);
+    console.error('   Pastikan EMAIL_USER dan EMAIL_PASS (App Password) di .env sudah benar.');
+  } else {
+    console.log('✅ SMTP Connection OK — Siap kirim email.');
+  }
+});
+
 const getFrontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173';
 
 const sendAdminPasswordEmail = async (user, mode = 'created') => {
@@ -34,11 +44,19 @@ const sendAdminPasswordEmail = async (user, mode = 'created') => {
     ? 'Akun admin RUPA Anda telah dibuat.'
     : 'Permintaan ganti password admin RUPA telah dibuat.';
 
-  await transporter.sendMail({
-    to: user.email,
-    subject,
-    text: `${intro}\n\nSilakan atur password melalui tautan berikut. Tautan berlaku selama 1 jam:\n\n${resetUrl}`,
-  });
+  try {
+    await transporter.sendMail({
+      from: `"RUPA Admin" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject,
+      text: `${intro}\n\nSilakan atur password melalui tautan berikut. Tautan berlaku selama 1 jam:\n\n${resetUrl}`,
+    });
+    console.log(`✅ Email admin (${mode}) berhasil dikirim ke: ${user.email}`);
+  } catch (emailError) {
+    console.error(`❌ Gagal kirim email admin (${mode}) ke ${user.email}:`, emailError.message);
+    console.error('   Detail SMTP error:', emailError.code, emailError.responseCode);
+    throw emailError; // Re-throw agar caller bisa handle
+  }
 };
 
 const getAdmins = async (req, res) => {
@@ -57,6 +75,8 @@ const getAdmins = async (req, res) => {
 };
 
 const createAdmin = async (req, res) => {
+  let createdAdmin = null;
+
   try {
     const { name, email } = req.body;
 
@@ -70,7 +90,7 @@ const createAdmin = async (req, res) => {
     }
 
     const randomPassword = crypto.randomBytes(24).toString('hex');
-    const admin = await User.create({
+    createdAdmin = await User.create({
       name: name.trim(),
       email: email.trim().toLowerCase(),
       password: await bcrypt.hash(randomPassword, 10),
@@ -78,9 +98,10 @@ const createAdmin = async (req, res) => {
       creator_status: 'none',
     });
 
-    await sendAdminPasswordEmail(admin, 'created');
+    // Kirim email — jika gagal, admin di-rollback
+    await sendAdminPasswordEmail(createdAdmin, 'created');
 
-    const safeAdmin = admin.toJSON();
+    const safeAdmin = createdAdmin.toJSON();
     delete safeAdmin.password;
     delete safeAdmin.resetPasswordToken;
     delete safeAdmin.resetPasswordExpires;
@@ -91,7 +112,24 @@ const createAdmin = async (req, res) => {
     });
   } catch (error) {
     console.error('Error create admin:', error);
-    res.status(500).json({ message: 'Gagal membuat admin atau mengirim email password.' });
+
+    // Rollback: hapus admin dari DB jika sudah dibuat tapi email gagal
+    if (createdAdmin) {
+      try {
+        await createdAdmin.destroy();
+        console.log(`🔄 Rollback: Admin ${createdAdmin.email} dihapus karena email gagal terkirim.`);
+      } catch (rollbackError) {
+        console.error('❌ Rollback gagal:', rollbackError.message);
+      }
+    }
+
+    // Berikan pesan error yang spesifik
+    const isEmailError = error.code === 'EAUTH' || error.code === 'ESOCKET' || error.code === 'ECONNECTION' || error.responseCode;
+    const message = isEmailError
+      ? 'Gagal mengirim email password. Periksa konfigurasi SMTP (EMAIL_USER / EMAIL_PASS) di server.'
+      : 'Gagal membuat admin baru.';
+
+    res.status(500).json({ message });
   }
 };
 
@@ -112,8 +150,14 @@ const sendAdminPasswordReset = async (req, res) => {
 
     res.status(200).json({ message: 'Email ganti password admin berhasil dikirim.' });
   } catch (error) {
-    console.error('Error send admin reset password:', error);
-    res.status(500).json({ message: 'Gagal mengirim email ganti password admin.' });
+    console.error('Error send admin reset password:', error.message);
+
+    const isEmailError = error.code === 'EAUTH' || error.code === 'ESOCKET' || error.code === 'ECONNECTION' || error.responseCode;
+    const message = isEmailError
+      ? 'Gagal mengirim email. Periksa konfigurasi SMTP di server.'
+      : 'Gagal mengirim email ganti password admin.';
+
+    res.status(500).json({ message });
   }
 };
 

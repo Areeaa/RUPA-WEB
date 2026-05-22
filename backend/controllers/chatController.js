@@ -54,8 +54,12 @@ const getMessages = async (req, res) => {
     const { conversationId } = req.params;
     const userId = req.user.id; // User yang sedang login
 
-    // 1. Cari ruang chatnya
-    const conversation = await Conversation.findByPk(conversationId);
+    // 1. Cari ruang chatnya beserta info buyer
+    const conversation = await Conversation.findByPk(conversationId, {
+      include: [
+        { model: require('../models/User'), as: 'buyer', attributes: ['id', 'name', 'address'] }
+      ]
+    });
     if (!conversation) {
       return res.status(404).json({ message: 'Ruang chat tidak ditemukan!' });
     }
@@ -75,13 +79,21 @@ const getMessages = async (req, res) => {
       ]
     });
 
-    res.status(200).json(messages);
+    res.status(200).json({
+      messages,
+      buyer: conversation.buyer ? {
+        id: conversation.buyer.id,
+        name: conversation.buyer.name,
+        address: conversation.buyer.address || '',
+      } : null,
+    });
 
   } catch (error) {
     console.error('Error get messages:', error);
     res.status(500).json({ message: 'Terjadi kesalahan pada server' });
   }
 };
+
 
 //kirim pesan baru
 const sendMessage = async (req, res) => {

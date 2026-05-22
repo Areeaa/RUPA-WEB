@@ -121,32 +121,51 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+// Verifikasi koneksi SMTP saat server start
+transporter.verify((err, success) => {
+  if (err) {
+    console.error('❌ [Auth] SMTP Connection FAILED:', err.message);
+  } else {
+    console.log('✅ [Auth] SMTP Connection OK');
+  }
+});
+
 const getFrontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173';
 
+// --- 1. Kirim Link Reset Password ---
 const forgotPassword = async (req, res) => {
-  const { email } = req.body;
-  const user = await User.findOne({ where: { email } });
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ where: { email } });
 
-  if (!user) return res.status(404).json({ message: 'Email tidak terdaftar' });
+    if (!user) return res.status(404).json({ message: 'Email tidak terdaftar' });
 
-  // Generate Token
-  const token = crypto.randomBytes(20).toString('hex');
-  user.resetPasswordToken = token;
-  user.resetPasswordExpires = Date.now() + 3600000; // 1 Jam
-  await user.save();
+    // Generate Token
+    const token = crypto.randomBytes(20).toString('hex');
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 Jam
+    await user.save();
 
-  // Kirim Email
-  const resetUrl = `${getFrontendUrl()}/reset-password/${token}`;
-  const mailOptions = {
-    to: user.email,
-    subject: 'Pemulihan Kata Sandi - Figma Rupa',
-    text: `Anda menerima email ini karena Anda (atau orang lain) meminta reset password. Klik link berikut: \n\n ${resetUrl}`
-  };
+    // Kirim Email
+    const resetUrl = `${getFrontendUrl()}/reset-password/${token}`;
 
-  transporter.sendMail(mailOptions, (err) => {
-    if (err) return res.status(500).json({ message: 'Gagal mengirim email' });
+    await transporter.sendMail({
+      from: `"RUPA Support" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: 'Pemulihan Kata Sandi - RUPA',
+      text: `Anda menerima email ini karena Anda (atau orang lain) meminta reset password. Klik link berikut: \n\n ${resetUrl}`
+    });
+
+    console.log(`✅ Email reset password terkirim ke: ${user.email}`);
     res.status(200).json({ message: 'Email pemulihan terkirim!' });
-  });
+  } catch (error) {
+    console.error('❌ Error forgotPassword:', error.message);
+    const isEmailError = error.code === 'EAUTH' || error.code === 'ESOCKET' || error.code === 'ECONNECTION' || error.responseCode;
+    const message = isEmailError
+      ? 'Gagal mengirim email. Periksa konfigurasi SMTP di server.'
+      : 'Gagal mengirim email pemulihan.';
+    res.status(500).json({ message });
+  }
 };
 
 // --- 2. Eksekusi Reset Password ---

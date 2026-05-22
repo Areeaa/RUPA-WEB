@@ -2,6 +2,7 @@ const Product = require('../models/Product');
 const User = require('../models/User');
 const Category = require('../models/Category'); 
 const { Op } = require('sequelize');
+const { cloudinary } = require('../config/cloudinaryConfig');
 
 // Fitur Tambah Produk Baru
 const createProduct = async (req, res) => {

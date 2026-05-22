@@ -118,7 +118,7 @@ API ini dilindungi oleh lapisan keamanan berikut:
 
 | Method | Endpoint | Keterangan | Akses |
 |---|---|---|---|
-| POST | `/invoice` | Buat tagihan di chat (Body: `conversationId`, `productId`, `shipping_address`, `shipping_cost`) | `isApprovedCreator` |
+| POST | `/invoice` | Buat tagihan di chat (Body: `conversationId`, `productId`, `quantity`, `shipping_address`, `shipping_cost`) | `isApprovedCreator` |
 | PUT | `/confirm/:orderId` | Pembeli upload bukti bayar (Upload `payment_proof`) | `verifyToken` |
 | PUT | `/verify/:orderId` | Penjual verifikasi pembayaran (Status → processing / Tolak) | `isApprovedCreator` |
 | PUT | `/ship/:orderId` | Penjual input resi pengiriman (Body: `tracking_number`) | `isApprovedCreator` |

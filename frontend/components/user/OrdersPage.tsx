@@ -75,6 +75,21 @@ import { OrderStatus, OrderItem, Order, ReturnStatus, ReturnRecord, UploadedFile
 import { orderService, reviewService, returnService, authService } from '../../utils/apiServices';
 import { OrderReturnForm } from './orders/OrderReturnForm';
 
+// Helper: parse first image URL dari data images backend (bisa string JSON atau array)
+function parseFirstImage(images: any): string {
+  if (!images) return '';
+  if (Array.isArray(images)) return images[0] || '';
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images);
+      return Array.isArray(parsed) ? parsed[0] || '' : images;
+    } catch {
+      return images;
+    }
+  }
+  return '';
+}
+
 type OrdersPageProps = {
   userData: UserData;
   onNavigateToReturn?: (orderId: string) => void;
@@ -146,7 +161,7 @@ function normalizeReturnRequest(ret: any): ReturnRecord {
     orderId: String(ret.orderId),
     orderItemId: ret.orderItemId || ret.order_item_id || undefined,
     productName: product.name || 'Produk',
-    productImage: product.images?.[0] || '',
+    productImage: parseFirstImage(product.images),
     returnReason: ret.reason,
     returnType: ret.return_type || 'refund',
     returnStatus: statusMap[ret.status] || 'Pending',
@@ -439,7 +454,7 @@ export function OrdersPage({ userData, onNavigateToReturn }: OrdersPageProps) {
                       {order.items?.map((item: any) => (
                         <div key={item.id} className="flex gap-4 items-center">
                           <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
-                            <ImageWithFallback src={item.Product?.images?.[0]} alt={item.Product?.name} preset="thumbnail" className="w-full h-full object-cover" />
+                            <ImageWithFallback src={parseFirstImage(item.Product?.images)} alt={item.Product?.name} preset="thumbnail" className="w-full h-full object-cover" />
                           </div>
                           <div className="flex-1">
                             <h4 className="font-bold text-gray-800 line-clamp-1">{item.Product?.name}</h4>

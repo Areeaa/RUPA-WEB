@@ -27,9 +27,24 @@ const DESKTOP_PRODUCT_COLUMNS = 6;
 const INITIAL_PRODUCT_ROWS = 6;
 const LOAD_MORE_PRODUCT_ROWS = 3;
 
+// Helper untuk parsing images dengan aman — backend bisa kirim string JSON atau array
+function safeParseImages(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [raw];
+    } catch {
+      return [raw];
+    }
+  }
+  return [];
+}
+
 // Helper to normalize backend product to frontend Product type
 function normalizeProduct(p: any): Product {
-  const images = p.images || [];
+  const images = safeParseImages(p.images);
   return {
     ...p,
     id: p.id,

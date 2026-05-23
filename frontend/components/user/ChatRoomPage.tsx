@@ -6,11 +6,10 @@ import { ImageWithFallback } from '../figma/ImageWithFallback';
 import type { UserData, Product, ChatMessage } from '../../types';
 import { chatService, orderService, authService } from '../../utils/apiServices';
 import { toast } from 'sonner';
-import { io, Socket } from 'socket.io-client';
+import { supabase } from '../../utils/supabaseClient';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { Card, CardContent } from '../ui/card';
 import { Banknote, QrCode, Copy } from 'lucide-react';
-
-const SOCKET_URL = 'http://localhost:5000';
 
 type ChatRoomPageProps = {
   userData: UserData;
@@ -20,6 +19,21 @@ type ChatRoomPageProps = {
   conversationId?: string | number;
   onNavigateToOrders?: () => void;
 };
+
+// Helper: parse first image URL dari data images backend (bisa string JSON atau array)
+function parseFirstImage(images: any): string {
+  if (!images) return '';
+  if (Array.isArray(images)) return images[0] || '';
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images);
+      return Array.isArray(parsed) ? parsed[0] || '' : images;
+    } catch {
+      return images;
+    }
+  }
+  return '';
+}
 
 export function ChatRoomPage({ userData, onBack, creatorName, product, conversationId, onNavigateToOrders }: ChatRoomPageProps) {
   const [inputText, setInputText] = useState('');
@@ -36,7 +50,7 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
   const [showQrisInvoice, setShowQrisInvoice] = useState(false);
   const [invoiceQuantity, setInvoiceQuantity] = useState('1');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const themeColors: Record<string, { primary: string; light: string; secondary: string }> = {
@@ -48,7 +62,7 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
   };
   const currentTheme = themeColors[userData.themeColor || 'green'] || themeColors.green;
 
-  // Load messages and setup Socket.IO
+  // Load messages and setup Supabase Broadcast
   useEffect(() => {
     if (!conversationId) {
       setIsLoading(false);
@@ -79,45 +93,32 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
 
     fetchMessages();
 
-    // Connect to Socket.IO
-    const socket = io(SOCKET_URL, { 
-      transports: ['websocket', 'polling'],
-      auth: {
-        token: localStorage.getItem('token'),
-      },
-    });
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      console.log('Socket connected:', socket.id);
-      socket.emit('join_room', conversationId);
-    });
-
-    socket.on('receive_message', (msg: any) => {
-      setMessages(prev => {
-        // Prevent duplicate messages
-        if (prev.some(m => m.id === msg.id)) return prev;
-        return [...prev, msg];
+    // Connect to Supabase Broadcast channel (relay only, no data stored in Supabase)
+    const channel = supabase.channel(`chat_${conversationId}`)
+      .on('broadcast', { event: 'new_message' }, ({ payload }) => {
+        // Hanya tampilkan pesan dari user lain (pengirim sudah menambahkan secara lokal)
+        if (payload.senderId !== userData.id) {
+          setMessages(prev => {
+            if (prev.some(m => m.id === payload.id)) return prev;
+            return [...prev, payload];
+          });
+        }
+      })
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        if (payload.userId !== userData.id) {
+          setIsTyping(payload.isTyping);
+        }
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Supabase Broadcast: terhubung ke chat_${conversationId}`);
+        }
       });
-    });
 
-    socket.on('user_typing', (data: any) => {
-      if (data.userId !== userData.id) {
-        setIsTyping(data.isTyping);
-      }
-    });
-
-    socket.on('message_error', (err: any) => {
-      toast.error(err.message || 'Gagal mengirim pesan');
-    });
-
-    socket.on('connect_error', (err: any) => {
-      toast.error(err.message || 'Gagal terhubung ke chat realtime');
-    });
+    channelRef.current = channel;
 
     return () => {
-      socket.emit('leave_room', conversationId);
-      socket.disconnect();
+      supabase.removeChannel(channel);
     };
   }, [conversationId, userData.id, product]);
 
@@ -136,61 +137,98 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
   };
   useEffect(() => { scrollToBottom(); }, [messages]);
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!inputText.trim() || !conversationId) return;
 
-    // Send via Socket.IO for realtime
-    if (socketRef.current) {
-      socketRef.current.emit('send_message', {
-        conversationId,
-        senderId: userData.id,
-        senderName: userData.name || userData.username,
-        text: inputText,
-      });
-    }
-
-    // Emit stop typing
-    if (socketRef.current) {
-      socketRef.current.emit('typing', { conversationId, userId: userData.id, isTyping: false });
-    }
-
+    const msgText = inputText;
     setInputText('');
+
+    try {
+      // 1. Simpan ke database via REST API
+      const res = await chatService.sendMessage(conversationId, {
+        text: msgText,
+        type: 'text',
+        senderName: userData.name || userData.username,
+      });
+      const savedMsg = res.data.data;
+
+      // 2. Tambahkan ke state lokal (pengirim)
+      setMessages(prev => {
+        if (prev.some(m => m.id === savedMsg.id)) return prev;
+        return [...prev, savedMsg];
+      });
+
+      // 3. Broadcast via Supabase (relay ke user lain)
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'new_message',
+        payload: savedMsg,
+      });
+
+      // 4. Stop typing indicator
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { userId: userData.id, isTyping: false },
+      });
+    } catch (error) {
+      toast.error('Gagal mengirim pesan');
+      setInputText(msgText); // Kembalikan teks jika gagal
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputText(e.target.value);
     
-    // Emit typing indicator
-    if (socketRef.current && conversationId) {
-      socketRef.current.emit('typing', { conversationId, userId: userData.id, isTyping: true });
+    // Emit typing indicator via Supabase Broadcast
+    if (channelRef.current && conversationId) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { userId: userData.id, isTyping: true },
+      });
       
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => {
-        if (socketRef.current) {
-          socketRef.current.emit('typing', { conversationId, userId: userData.id, isTyping: false });
-        }
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'typing',
+          payload: { userId: userData.id, isTyping: false },
+        });
       }, 2000);
     }
   };
 
-  const handleStartTransaction = () => {
+  const handleStartTransaction = async () => {
     if (!product || !conversationId) return;
 
-    if (socketRef.current) {
-      socketRef.current.emit('send_message', {
-        conversationId,
-        senderId: userData.id,
-        senderName: userData.name || userData.username,
+    try {
+      const res = await chatService.sendMessage(conversationId, {
         text: `Halo ${creatorName}, saya ingin membeli "${product.name}". Mohon kirimkan tagihannya.`,
         type: 'purchase_request',
-        productId: product.id
+        senderName: userData.name || userData.username,
+        productId: Number(product.id),
       });
-    }
+      const savedMsg = res.data.data;
 
-    toast.success(`Permintaan pembelian telah dikirim!`, {
-      icon: <ShoppingBag className="w-5 h-5 text-green-500" />
-    });
+      setMessages(prev => {
+        if (prev.some(m => m.id === savedMsg.id)) return prev;
+        return [...prev, savedMsg];
+      });
+
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'new_message',
+        payload: savedMsg,
+      });
+
+      toast.success(`Permintaan pembelian telah dikirim!`, {
+        icon: <ShoppingBag className="w-5 h-5 text-green-500" />
+      });
+    } catch (error) {
+      toast.error('Gagal mengirim permintaan pembelian');
+    }
   };
 
   const handleCreateInvoice = async (e: React.FormEvent) => {
@@ -244,33 +282,50 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
         }
       }
 
-      if (socketRef.current) {
-        socketRef.current.emit('send_message', {
-          conversationId,
-          senderId: userData.id,
-          senderName: userData.name || userData.username,
-          text: `TAGIHAN PESANAN #${newOrder.id}\n---\nBarang:\n${itemLines}\nOngkir: Rp${Number(newOrder?.shipping_cost || shippingCost || 0).toLocaleString('id-ID')}\nAlamat: ${shippingAddress || '-'}\n---\nTOTAL BAYAR: Rp${totalBayar.toLocaleString('id-ID')}\nSilakan transfer dan upload bukti pembayaran di halaman Pesanan.${paymentText}`,
-          type: 'invoice',
-          productId: invoiceProductId,
-          invoice_items: orderItems.length > 0 ? orderItems.map((item: any) => ({
-            productId: item.productId,
-            name: item.Product?.name || 'Produk',
-            quantity: Number(item.quantity || 1),
-            price: Number(item.price || 0),
-          })) : [{
-            productId: invoiceProductId,
-            name: selectedRequest?.product_info?.name || 'Produk',
-            quantity,
-            price: invoiceUnitPrice,
-          }],
-          payment_info: paymentInfo ? {
-            bank_name: paymentInfo.bank_name,
-            bank_account_number: paymentInfo.bank_account_number,
-            bank_account_holder: paymentInfo.bank_account_holder,
-            qris_image: paymentInfo.qris_image,
-          } : null,
-        });
-      }
+      const invoiceText = `TAGIHAN PESANAN #${newOrder.id}\n---\nBarang:\n${itemLines}\nOngkir: Rp${Number(newOrder?.shipping_cost || shippingCost || 0).toLocaleString('id-ID')}\nAlamat: ${shippingAddress || '-'}\n---\nTOTAL BAYAR: Rp${totalBayar.toLocaleString('id-ID')}\nSilakan transfer dan upload bukti pembayaran di halaman Pesanan.${paymentText}`;
+
+      const invoiceItemsData = orderItems.length > 0 ? orderItems.map((item: any) => ({
+        productId: item.productId,
+        name: item.Product?.name || 'Produk',
+        quantity: Number(item.quantity || 1),
+        price: Number(item.price || 0),
+      })) : [{
+        productId: invoiceProductId,
+        name: selectedRequest?.product_info?.name || 'Produk',
+        quantity,
+        price: invoiceUnitPrice,
+      }];
+
+      const paymentInfoData = paymentInfo ? {
+        bank_name: paymentInfo.bank_name,
+        bank_account_number: paymentInfo.bank_account_number,
+        bank_account_holder: paymentInfo.bank_account_holder,
+        qris_image: paymentInfo.qris_image,
+      } : null;
+
+      // Simpan invoice ke database via REST API
+      const msgRes = await chatService.sendMessage(conversationId, {
+        text: invoiceText,
+        type: 'invoice',
+        senderName: userData.name || userData.username,
+        productId: invoiceProductId,
+        invoice_items: invoiceItemsData,
+        payment_info: paymentInfoData,
+      });
+      const savedMsg = msgRes.data.data;
+
+      // Tambahkan ke state lokal
+      setMessages(prev => {
+        if (prev.some(m => m.id === savedMsg.id)) return prev;
+        return [...prev, savedMsg];
+      });
+
+      // Broadcast via Supabase
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'new_message',
+        payload: savedMsg,
+      });
 
       toast.success('Tagihan berhasil dikirim!');
       setIsInvoiceModalOpen(false);
@@ -362,7 +417,7 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
         <div className="bg-white p-3 shadow-sm border-b border-gray-100 z-10 sticky top-[68px]">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-100">
-              <ImageWithFallback src={product.image || ''} alt={product.name} preset="thumbnail" className="w-full h-full object-cover" />
+              <ImageWithFallback src={product.image || parseFirstImage(product.images) || ''} alt={product.name} preset="thumbnail" className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-bold text-gray-800 truncate mb-1">{product.name}</h3>
@@ -456,7 +511,7 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
                       }`}>
                         <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-black/5">
                           <ImageWithFallback 
-                            src={msg.product_info?.images?.[0] || msg.product_info?.image || ''} 
+                            src={parseFirstImage(msg.product_info?.images) || msg.product_info?.image || ''} 
                             alt={msg.product_info?.name || 'Produk'} 
                             className="w-full h-full object-cover" 
                           />
@@ -595,7 +650,7 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
                   <div className="flex items-center gap-3">
                     <div className="w-14 h-14 rounded-xl overflow-hidden bg-white shadow-sm flex-shrink-0">
                       <img
-                        src={selectedRequest?.product_info?.images?.[0] || selectedRequest?.product_info?.image || ''}
+                        src={parseFirstImage(selectedRequest?.product_info?.images) || selectedRequest?.product_info?.image || ''}
                         alt={selectedRequest?.product_info?.name || 'Produk'}
                         className="w-full h-full object-cover"
                       />

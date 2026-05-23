@@ -110,8 +110,23 @@ export function ProductDetailPage({ product: initialProduct, onBack, userData, i
     }
   }, [initialProduct.id]);
 
-  const productImages = product.images && product.images.length > 0
-    ? product.images
+  // KODE PERBAIKAN: Parsing images dengan aman
+  let parsedImages: string[] = [];
+  
+  if (product.images) {
+    if (Array.isArray(product.images)) {
+      parsedImages = product.images;
+    } else if (typeof product.images === 'string') {
+      try {
+        parsedImages = JSON.parse(product.images);
+      } catch (error) {
+        parsedImages = [product.images]; 
+      }
+    }
+  }
+
+  const productImages = parsedImages.length > 0
+    ? parsedImages
     : [product.image || 'https://placehold.co/800x800?text=No+Image'];
 
   const nextImage = () => setCurrentImageIndex((prev) => (prev === productImages.length - 1 ? 0 : prev + 1));

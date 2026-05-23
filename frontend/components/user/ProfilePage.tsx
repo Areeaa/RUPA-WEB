@@ -15,6 +15,21 @@ import { normalizeProduct } from './HomePage';
 import { CreatorApplication } from './CreatorApplication';
 import { formatRupiahInput, getCurrencyDigits } from '../../utils/currency';
 
+// Helper: parse first image URL dari data images backend (bisa string JSON atau array)
+function parseFirstImage(images: any): string {
+  if (!images) return '';
+  if (Array.isArray(images)) return images[0] || '';
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images);
+      return Array.isArray(parsed) ? parsed[0] || '' : images;
+    } catch {
+      return images;
+    }
+  }
+  return '';
+}
+
 type ProfilePageProps = {
   userData: UserData;
   updateUserData: (newData: Partial<UserData>) => void;
@@ -445,7 +460,7 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
                       {order.items?.map((item: any) => (
                         <div key={item.id} className="flex gap-3 items-center">
                           <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
-                            <ImageWithFallback src={item.Product?.images?.[0]} alt={item.Product?.name} preset="thumbnail" className="w-full h-full object-cover" />
+                            <ImageWithFallback src={parseFirstImage(item.Product?.images)} alt={item.Product?.name} preset="thumbnail" className="w-full h-full object-cover" />
                           </div>
                           <div>
                             <p className="font-bold text-gray-800">{item.Product?.name}</p>

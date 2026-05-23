@@ -11,6 +11,9 @@ backend/node_modules/
 frontend/.env
 backend/.env
 
+# Sequelize CLI config (contains production DB credentials)
+backend/config/config.json
+
 # Build / Output
 frontend/dist/
 backend/dist/

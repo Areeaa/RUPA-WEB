@@ -95,14 +95,14 @@ const getMessages = async (req, res) => {
 };
 
 
-//kirim pesan baru
+//kirim pesan baru (mendukung semua tipe: text, purchase_request, invoice)
 const sendMessage = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const { text } = req.body;
+    const { text, type, productId, payment_info, invoice_items, senderName } = req.body;
     const userId = req.user.id;
 
-    if (!text) {
+    if (!text && (!type || type === 'text')) {
       return res.status(400).json({ message: 'Pesan tidak boleh kosong!' });
     }
 
@@ -120,12 +120,43 @@ const sendMessage = async (req, res) => {
     const newMessage = await Message.create({
       conversationId,
       senderId: userId,
-      text
+      text,
+      type: type || 'text',
+      productId: productId || null,
+      payment_info: payment_info || null,
+      invoice_items: invoice_items || null,
     });
 
+    // 3. Ambil info produk jika ada
+    let productInfo = null;
+    if (newMessage.productId) {
+      productInfo = await Product.findByPk(newMessage.productId, {
+        attributes: ['id', 'name', 'price', 'images']
+      });
+    }
+
+    // 4. Update timestamp percakapan
+    await Conversation.update(
+      { updatedAt: new Date() },
+      { where: { id: conversationId } }
+    );
+
+    // 5. Response lengkap agar frontend bisa langsung broadcast via Supabase
     res.status(201).json({
       message: 'Pesan terkirim',
-      data: newMessage
+      data: {
+        id: newMessage.id,
+        conversationId: Number(conversationId),
+        senderId: userId,
+        senderName: senderName || null,
+        text: newMessage.text,
+        type: newMessage.type,
+        productId: newMessage.productId,
+        product_info: productInfo,
+        payment_info: newMessage.payment_info,
+        invoice_items: newMessage.invoice_items,
+        createdAt: newMessage.createdAt,
+      }
     });
 
   } catch (error) {

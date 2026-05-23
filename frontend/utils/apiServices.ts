@@ -73,8 +73,14 @@ export const chatService = {
     api.post('/chats/start', { productId }),
   getMessages: (conversationId: number | string) => 
     api.get(`/chats/${conversationId}`),
-  sendMessage: (conversationId: number | string, text: string) => 
-    api.post(`/chats/${conversationId}/message`, { text }),
+  sendMessage: (conversationId: number | string, data: {
+    text: string;
+    type?: 'text' | 'purchase_request' | 'invoice';
+    senderName?: string;
+    productId?: number;
+    payment_info?: any;
+    invoice_items?: any;
+  }) => api.post(`/chats/${conversationId}/message`, data),
 };
 
 // --- Review Services ---

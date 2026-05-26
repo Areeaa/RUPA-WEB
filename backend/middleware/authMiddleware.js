@@ -47,8 +47,19 @@ const isApprovedCreator = async (req, res, next) => {
   }
 };
 
+// Satpam 4: Memastikan yang akses BUKAN Admin (hanya untuk User biasa)
+const isUserOnly = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    return res.status(403).json({ 
+      message: 'Akses ditolak! Fitur ini khusus untuk pengguna biasa, bukan Admin.' 
+    });
+  }
+  next();
+};
+
 module.exports = {
   verifyToken,
   isAdmin,
-  isApprovedCreator
+  isApprovedCreator,
+  isUserOnly
 };

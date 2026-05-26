@@ -130,7 +130,7 @@ transporter.verify((err, success) => {
   }
 });
 
-const getFrontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173';
+const getFrontendUrl = () => (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
 
 // --- 1. Kirim Link Reset Password ---
 const forgotPassword = async (req, res) => {

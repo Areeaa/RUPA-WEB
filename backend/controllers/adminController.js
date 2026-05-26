@@ -28,7 +28,7 @@ transporter.verify((err, success) => {
   }
 });
 
-const getFrontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173';
+const getFrontendUrl = () => (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
 
 const sendAdminPasswordEmail = async (user, mode = 'created') => {
   const token = crypto.randomBytes(20).toString('hex');

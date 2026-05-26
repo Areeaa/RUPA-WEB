@@ -53,9 +53,13 @@ export default function App() {
         <Route 
           path="/" 
           element={
-            <UserDashboard 
-              isGuest={!isAuthenticated} 
-            />
+            isAuthenticated && userType === 'admin' ? (
+              <Navigate to="/admin" replace />
+            ) : (
+              <UserDashboard 
+                isGuest={!isAuthenticated} 
+              />
+            )
           } 
         />
         
@@ -63,13 +67,17 @@ export default function App() {
         <Route 
           path="/login" 
           element={
-            isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />
+            isAuthenticated ? (
+              <Navigate to={userType === 'admin' ? '/admin' : '/'} replace />
+            ) : <LoginPage />
           } 
         />
         <Route 
           path="/signup" 
           element={
-            isAuthenticated ? <Navigate to="/" replace /> : <SignUpPage />
+            isAuthenticated ? (
+              <Navigate to={userType === 'admin' ? '/admin' : '/'} replace />
+            ) : <SignUpPage />
           } 
         />
 
@@ -102,7 +110,9 @@ export default function App() {
         />
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={
+          <Navigate to={isAuthenticated && userType === 'admin' ? '/admin' : '/'} replace />
+        } />
       </Routes>
       
       <Toaster />

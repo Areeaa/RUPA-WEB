@@ -60,11 +60,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   });
   const [isLoading, setIsLoading] = useState(true);
 
+  // Proactive session expiry: logout if 24h has passed since login
+  const SESSION_MAX_MS = 24 * 60 * 60 * 1000; // 24 jam
+
+  const performSessionLogout = (message: string) => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('loginTime');
+    setAuthState({
+      isAuthenticated: false,
+      userType: null,
+      userData: GUEST_DATA,
+    });
+    toast.info(message);
+  };
+
   // Initial auth check
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
       if (token) {
+        // Check if session has expired before even calling API
+        const loginTime = localStorage.getItem('loginTime');
+        if (loginTime && Date.now() - parseInt(loginTime, 10) > SESSION_MAX_MS) {
+          performSessionLogout('Sesi Anda telah berakhir. Silakan login kembali.');
+          setIsLoading(false);
+          return;
+        }
+
         try {
           const res = await authService.getProfile();
           const user = normalizeUser(res.data);
@@ -76,6 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } catch (error) {
           console.error('Failed to fetch profile:', error);
           localStorage.removeItem('token');
+          localStorage.removeItem('loginTime');
         }
       }
       setIsLoading(false);
@@ -84,11 +107,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkAuth();
   }, []);
 
+  // Cross-tab sync: detect logout from another tab
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token' && e.newValue === null) {
+        // Token was removed in another tab — sync logout here
+        setAuthState({
+          isAuthenticated: false,
+          userType: null,
+          userData: GUEST_DATA,
+        });
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // Proactive timer: check every 60s if session has expired
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const loginTime = localStorage.getItem('loginTime');
+      const token = localStorage.getItem('token');
+      if (token && loginTime && Date.now() - parseInt(loginTime, 10) > SESSION_MAX_MS) {
+        performSessionLogout('Sesi Anda telah berakhir. Silakan login kembali.');
+      }
+    }, 60 * 1000); // Cek setiap 1 menit
+
+    return () => clearInterval(interval);
+  }, []);
+
   const login = async (credentials: { email: string; password: string }) => {
     try {
       const res = await authService.login(credentials);
       const { token, user } = res.data;
       localStorage.setItem('token', token);
+      localStorage.setItem('loginTime', Date.now().toString());
       const normalized = normalizeUser(user);
       setAuthState({
         isAuthenticated: true,
@@ -108,6 +162,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const res = await authService.googleLogin(idToken);
       const { token, user } = res.data;
       localStorage.setItem('token', token);
+      localStorage.setItem('loginTime', Date.now().toString());
       const normalized = normalizeUser(user);
       setAuthState({
         isAuthenticated: true,
@@ -132,6 +187,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       localStorage.setItem('token', token);
+      localStorage.setItem('loginTime', Date.now().toString());
       const normalized = normalizeUser(user);
       setAuthState({
         isAuthenticated: true,
@@ -155,6 +211,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const loginRes = await authService.login({ email: userData.email, password: userData.password });
       const { token, user } = loginRes.data;
       localStorage.setItem('token', token);
+      localStorage.setItem('loginTime', Date.now().toString());
       const normalized = normalizeUser(user);
       setAuthState({
         isAuthenticated: true,
@@ -170,6 +227,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('loginTime');
     setAuthState({
       isAuthenticated: false,
       userType: null,

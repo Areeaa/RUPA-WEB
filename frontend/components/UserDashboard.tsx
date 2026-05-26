@@ -41,6 +41,19 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
   const { authState, logout, updateUser } = useAuth();
   const { userData } = authState;
   const navigate = useNavigate();
+
+  // Safety net: Admin tidak boleh mengakses User Dashboard
+  useEffect(() => {
+    if (authState.userType === 'admin') {
+      navigate('/admin', { replace: true });
+    }
+  }, [authState.userType, navigate]);
+
+  // Jangan render apapun jika admin — redirect sedang berlangsung
+  if (authState.userType === 'admin') {
+    return null;
+  }
+
   const displayUserData: UserData = userData || {
     name: 'Pengunjung',
     email: '',

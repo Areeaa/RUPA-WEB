@@ -37,6 +37,8 @@ const createInvoiceFromChat = async (req, res) => {
       return res.status(400).json({ message: 'Jumlah barang minimal 1.' });
     }
 
+    const { Op } = require('sequelize');
+
     const product = await Product.findOne({
       where: {
         id: parsedProductId,
@@ -47,6 +49,29 @@ const createInvoiceFromChat = async (req, res) => {
 
     if (!product) {
       return res.status(400).json({ message: 'Produk harus aktif dan milik Anda.' });
+    }
+
+    // GUARD: Cegah tagihan ganda — cek apakah sudah ada order aktif (bukan cancelled) 
+    // untuk produk yang sama antara buyer & seller dalam conversation ini
+    const existingOrder = await Order.findOne({
+      where: {
+        userId: conversation.buyerId,
+        sellerId: sellerId,
+        status: { [Op.ne]: 'cancelled' },
+      },
+      include: [{
+        model: OrderItem,
+        as: 'items',
+        where: { productId: parsedProductId },
+        required: true,
+      }],
+    });
+
+    if (existingOrder) {
+      return res.status(409).json({ 
+        message: 'Tagihan untuk produk ini sudah pernah dibuat. Tidak bisa membuat tagihan ganda.',
+        existingOrderId: existingOrder.id,
+      });
     }
 
     const productPrice = parseMoney(product.price);

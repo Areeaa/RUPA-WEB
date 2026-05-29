@@ -530,20 +530,38 @@ export function ChatRoomPage({ userData, onBack, creatorName, product, conversat
                     <p className="text-[15px] whitespace-pre-line leading-relaxed mb-1">{msg.text}</p>
                     
                     {/* Action Buttons for Seller */}
-                    {isPurchaseRequest && !isSender && (
-                      <Button 
-                        onClick={() => {
-                          setSelectedRequest(msg);
-                          setInvoiceQuantity('1');
-                          // Auto-fill alamat pengiriman dari profil pembeli
-                          setShippingAddress(buyerAddress || '');
-                          setIsInvoiceModalOpen(true);
-                        }}
-                        className="w-full mt-3 h-10 rounded-xl text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-md border-0 animate-pulse"
-                      >
-                        Konfirmasi & Buat Tagihan
-                      </Button>
-                    )}
+                    {isPurchaseRequest && !isSender && (() => {
+                      // Check if an invoice has already been generated for this product
+                      const requestProductId = msg.productId || msg.product_info?.id;
+                      const invoiceAlreadySent = requestProductId && messages.some(
+                        m => m.type === 'invoice' && 
+                             (m.productId === requestProductId || m.product_info?.id === requestProductId) &&
+                             new Date(m.createdAt) > new Date(msg.createdAt)
+                      );
+
+                      if (invoiceAlreadySent) {
+                        return (
+                          <div className="w-full mt-3 text-center py-2 px-3 rounded-xl bg-gray-200 text-gray-500 text-xs font-semibold">
+                            ✅ Tagihan sudah dikirim
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <Button 
+                          onClick={() => {
+                            setSelectedRequest(msg);
+                            setInvoiceQuantity('1');
+                            // Auto-fill alamat pengiriman dari profil pembeli
+                            setShippingAddress(buyerAddress || '');
+                            setIsInvoiceModalOpen(true);
+                          }}
+                          className="w-full mt-3 h-10 rounded-xl text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-md border-0 animate-pulse"
+                        >
+                          Konfirmasi & Buat Tagihan
+                        </Button>
+                      );
+                    })()}
 
                     {/* Action Button for Buyer on Invoice */}
                     {isInvoice && !isSender && (

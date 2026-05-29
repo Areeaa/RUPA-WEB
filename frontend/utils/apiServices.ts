@@ -103,6 +103,10 @@ export const returnService = {
 export const licenseService = {
   submit: (data: any) => api.post('/licenses/submit', data),
   getMyLicenses: () => api.get('/licenses/my-licenses'),
+  uploadPayment: (id: number, formData: FormData) =>
+    api.put(`/licenses/${id}/payment`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 };
 
 // --- Donation Services ---
@@ -132,9 +136,12 @@ export const adminService = {
   updateCategory: (id: number, name: string) => api.put(`/admin/categories/${id}`, { name }),
   deleteCategory: (id: number) => api.delete(`/admin/categories/${id}`),
   // Licenses
+  getAllLicenses: (status?: string) => api.get('/admin/licenses', { params: status && status !== 'all' ? { status } : {} }),
   getPendingLicenses: () => api.get('/admin/licenses/pending'),
-  verifyLicense: (id: number, action: 'approve' | 'reject') => 
-    api.put(`/admin/licenses/verify/${id}`, { action }),
+  verifyLicense: (id: number, action: 'approve' | 'reject', payload?: { admin_fee?: number; admin_note?: string }) => 
+    api.put(`/admin/licenses/verify/${id}`, { action, ...(payload || {}) }),
+  verifyLicensePayment: (id: number, action: 'approve' | 'reject', admin_note?: string) =>
+    api.put(`/admin/licenses/${id}/verify-payment`, { action, admin_note }),
   // Analytics
   getSystemStats: () => api.get('/admin/stats'),
   getDailyTransactions: () => api.get('/admin/analytics/daily'),

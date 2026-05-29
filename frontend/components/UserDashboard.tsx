@@ -152,12 +152,8 @@ export function UserDashboard({ isGuest }: UserDashboardProps) {
             <div className="container mx-auto px-4">
               <div className="flex items-center justify-between py-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur overflow-hidden">
-                    <img src="/ic_rupa.svg" alt="Logo RUPA" className="h-7 w-7 object-contain" />
-                  </div>
-                  <div>
-                    <h1 className="text-xl">RUPA</h1>
-                    <p className="text-xs text-white/80">Karya Anak Bangsa</p>
+                  <div className="flex h-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur px-3 overflow-hidden">
+                    <img src="/ic_rupa.svg" alt="Logo RUPA" className="h-7 w-auto object-contain" />
                   </div>
                 </div>
 

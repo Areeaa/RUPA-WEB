@@ -100,9 +100,7 @@ export function SignUpPage() {
       <Card className="w-full max-w-lg shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center mb-4">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-orange-400 flex items-center justify-center shadow-lg overflow-hidden">
-              <img src="/ic_rupa.svg" alt="Logo RUPA" className="w-12 h-12 object-contain" />
-            </div>
+            <img src="/ic_rupa.svg" alt="Logo RUPA" className="h-14 w-auto object-contain" />
           </div>
           <CardTitle className="text-green-800">Bergabung dengan RUPA</CardTitle>
           <CardDescription className="text-orange-700">

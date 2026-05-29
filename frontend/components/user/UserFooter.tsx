@@ -42,16 +42,8 @@ export function UserFooter({ isGuest, onNavigate }: UserFooterProps) {
           {/* Brand Column */}
           <div className="md:col-span-2">
             <div className="mb-4 flex items-center gap-3">
-              <div
-                className="flex h-11 w-11 items-center justify-center rounded-2xl"
-                style={{ backgroundColor: 'var(--theme-primary, #4caf50)', opacity: 0.9 }}
-              >
-                <img src="/ic_rupa.svg" alt="Logo RUPA" className="h-6 w-6 object-contain" />
-              </div>
-              <div>
-                <p className="text-xl font-bold tracking-tight text-gray-900">RUPA</p>
-                <p className="text-xs text-gray-400">Platform Karya Lokal</p>
-              </div>
+              <img src="/ic_rupa.svg" alt="Logo RUPA" className="h-9 w-auto object-contain" />
+              <p className="text-xs text-gray-400">Platform Karya Lokal</p>
             </div>
             <p className="mb-6 max-w-sm text-sm leading-relaxed text-gray-500">
               RUPA adalah ruang bagi para kreator lokal Indonesia untuk menjual karya mereka secara

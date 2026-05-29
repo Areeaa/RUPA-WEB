@@ -23,8 +23,50 @@ const LicenseApplication = sequelize.define('LicenseApplication', {
   deskripsi_karya: { type: DataTypes.TEXT, allowNull: false },
   
   status: {
-    type: DataTypes.ENUM('pending', 'approved', 'rejected'),
-    defaultValue: 'pending' // Admin akan mereview status ini
+    type: DataTypes.ENUM(
+      'pending',                    // Baru diajukan, menunggu review admin
+      'approved_pending_payment',   // Disetujui admin, menunggu pembayaran dari pengaju
+      'waiting_verification',       // Bukti bayar sudah diupload, menunggu verifikasi admin
+      'active',                     // Pembayaran terverifikasi, lisensi aktif
+      'payment_rejected',           // Bukti bayar ditolak, harus upload ulang
+      'rejected'                    // Ditolak oleh admin
+    ),
+    defaultValue: 'pending'
+  },
+
+  // === TAGIHAN DARI ADMIN ===
+  admin_fee: {
+    type: DataTypes.INTEGER,
+    allowNull: true, // Diisi saat admin approve
+  },
+  admin_note: {
+    type: DataTypes.TEXT,
+    allowNull: true, // Catatan/instruksi dari admin
+  },
+
+  // === BUKTI PEMBAYARAN DARI PENGAJU ===
+  payment_proof: {
+    type: DataTypes.STRING,
+    allowNull: true, // Path file bukti bayar (Cloudinary URL)
+  },
+  payment_proof_at: {
+    type: DataTypes.DATE,
+    allowNull: true, // Kapan bukti bayar diupload
+  },
+
+  // === TRACKING ADMIN ===
+  approved_at: {
+    type: DataTypes.DATE,
+    allowNull: true, // Kapan admin approve pengajuan
+  },
+  approved_by: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: User, key: 'id' }
+  },
+  verified_at: {
+    type: DataTypes.DATE,
+    allowNull: true, // Kapan pembayaran diverifikasi admin
   },
 
   // Relasi ke User (Siapa yang mengajukan)
@@ -41,5 +83,8 @@ const LicenseApplication = sequelize.define('LicenseApplication', {
 // Definisi Relasi
 User.hasMany(LicenseApplication, { foreignKey: 'userId', as: 'licenses' });
 LicenseApplication.belongsTo(User, { foreignKey: 'userId', as: 'pemohon' });
+
+User.hasMany(LicenseApplication, { foreignKey: 'approved_by', as: 'approvedLicenses' });
+LicenseApplication.belongsTo(User, { foreignKey: 'approved_by', as: 'approver' });
 
 module.exports = LicenseApplication;

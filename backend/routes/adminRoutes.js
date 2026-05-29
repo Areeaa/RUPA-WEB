@@ -3,7 +3,7 @@ const router = express.Router();
 const { getPendingCreators, verifyCreator, getAdmins, createAdmin, sendAdminPasswordReset } = require("../controllers/adminController");
 const { createCategory, updateCategory, deleteCategory } = require("../controllers/categoryController");
 const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
-const { getPendingLicenses, verifyLicense } = require('../controllers/licenseController');
+const { getPendingLicenses, getAllLicenses, verifyLicense, verifyLicensePayment } = require('../controllers/licenseController');
 const { getProductReports, reviewProductReport } = require('../controllers/productReportController');
 const { getDonations, getDonationStats, reviewDonation } = require('../controllers/donationController');
 const { getAdminReturns, reviewReturn } = require('../controllers/returnController');
@@ -50,8 +50,10 @@ router.put("/categories/:id", updateCategory);
 router.delete("/categories/:id", deleteCategory);
 
 // Rute Pengajuan Lisensi (Hanya Admin)
+router.get('/licenses', getAllLicenses);
 router.get('/licenses/pending', getPendingLicenses);
 router.put('/licenses/verify/:id', verifyLicense);
+router.put('/licenses/:id/verify-payment', verifyLicensePayment);
 
 // Rute Pelaporan Produk (Hanya Admin)
 router.get('/reports/products', getProductReports);

@@ -5,7 +5,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Store, Plus, Upload, Star, Package, Loader2 } from 'lucide-react';
+import { Store, Plus, Upload, Star, Package, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import type { UserData, Product } from '../../types';
@@ -48,6 +48,7 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
+  const [deletingProductId, setDeletingProductId] = useState<number | null>(null);
 
   useEffect(() => {
     if (activeTab === 'my-products') {
@@ -167,6 +168,23 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
     setImagePreviews(product.images || [product.image].filter(Boolean) as string[]);
     setImageFiles([]); // Reset files, we use existing previews (URLs) or new files
     setActivePage('upload');
+  };
+
+  const handleDeleteProduct = async (product: Product) => {
+    const confirmed = window.confirm(`Yakin ingin menghapus "${product.name}"? Tindakan ini tidak dapat dibatalkan.`);
+    if (!confirmed) return;
+
+    setDeletingProductId(product.id as number);
+    try {
+      await productService.delete(product.id as number);
+      toast.success('Produk berhasil dihapus! 🗑️');
+      setMyProducts(prev => prev.filter(p => p.id !== product.id));
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Gagal menghapus produk';
+      toast.error(message);
+    } finally {
+      setDeletingProductId(null);
+    }
   };
 
   const handleSubmitUpload = async (e: React.FormEvent) => {
@@ -300,14 +318,29 @@ export function ProfilePage({ userData, updateUserData }: ProfilePageProps) {
                         <span className="font-bold text-gray-900">
                           Rp {(typeof work.price === 'number' ? work.price : parseInt(String(work.price)) || 0).toLocaleString('id-ID')}
                         </span>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="h-8 rounded-lg text-xs"
-                          onClick={() => handleEditClick(work)}
-                        >
-                          Edit
-                        </Button>
+                        <div className="flex gap-1.5">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 rounded-lg text-xs"
+                            onClick={() => handleEditClick(work)}
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 rounded-lg text-xs border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                            onClick={() => handleDeleteProduct(work)}
+                            disabled={deletingProductId === (work.id as number)}
+                          >
+                            {deletingProductId === (work.id as number) ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

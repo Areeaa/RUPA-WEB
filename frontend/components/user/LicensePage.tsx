@@ -504,10 +504,10 @@ export function LicensePage({ userData }: LicensePageProps) {
               </p>
               <div className="flex flex-wrap gap-4 justify-center">
                 <Button variant="outline" className="bg-white/20 border-white/30 text-white hover:bg-white/30 rounded-xl">
-                  Email: license@rupa.id
+                  Email: terasrupa471@gmail.com
                 </Button>
                 <Button variant="outline" className="bg-white/20 border-white/30 text-white hover:bg-white/30 rounded-xl">
-                  WhatsApp: +62 812-3456-7890
+                  WhatsApp: +62 822 1009 4275
                 </Button>
               </div>
             </CardContent>
